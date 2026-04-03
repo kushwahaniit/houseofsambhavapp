@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckCircle, Clock, Truck, Ban, Trash2, ShoppingBag } from 'lucide-react';
+import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckCircle, Clock, Truck, Ban, Trash2, ShoppingBag, Database } from 'lucide-react';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDocs, where, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
@@ -412,6 +412,22 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               <span>{isClearing ? 'Clearing...' : 'Clear Data'}</span>
             </button>
           )}
+          <button 
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/health');
+                const data = await res.json();
+                alert('BACKEND STATUS: ' + data.status + '\nTimestamp: ' + data.timestamp);
+              } catch (err) {
+                alert('BACKEND ERROR: ' + (err instanceof Error ? err.message : String(err)));
+              }
+            }}
+            className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+            title="Test connection to backend API"
+          >
+            <Database size={18} />
+            <span>Test API</span>
+          </button>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors"

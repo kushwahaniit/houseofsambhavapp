@@ -15,6 +15,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Health check route
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // Shiprocket Auth Token Cache
   let shiprocketToken: string | null = null;
   let tokenExpiry: number | null = null;
@@ -224,6 +229,16 @@ async function startServer() {
         details: error.stack
       });
     }
+  });
+
+  // Catch-all for API routes that don't exist
+  app.all("/api/*", (req, res) => {
+    console.warn(`API 404: ${req.method} ${req.url}`);
+    res.status(404).json({ 
+      error: "API route not found", 
+      method: req.method, 
+      path: req.url 
+    });
   });
 
   // Vite middleware for development
