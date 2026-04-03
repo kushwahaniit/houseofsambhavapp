@@ -267,7 +267,7 @@ function AppContent() {
             <img 
               src="/logo.png" 
               alt="House of Sambhav Logo" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-2"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
@@ -466,7 +466,7 @@ function AppContent() {
             <img 
               src="/logo.png" 
               alt="House of Sambhav Logo" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-2"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
@@ -546,7 +546,7 @@ function AppContent() {
               <img 
                 src="/logo.png" 
                 alt="Logo" 
-                className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl object-cover shadow-sm border border-stone-100 dark:border-stone-700"
+                className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl object-contain p-1 shadow-sm border border-stone-100 dark:border-stone-700"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";

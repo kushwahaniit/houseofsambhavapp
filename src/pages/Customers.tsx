@@ -138,7 +138,7 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
             <img 
               src="/logo.png" 
               alt="House of Sambhav Logo" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-1"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
