@@ -51,7 +51,16 @@ async function startServer() {
       });
 
       const responseStatus = response.status;
-      const data = await response.json() as any;
+      const contentType = response.headers.get("content-type");
+      let data: any;
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error(`Shiprocket Auth: Received non-JSON response (Status ${responseStatus}):`, text);
+        throw new Error(`Shiprocket Auth: Received non-JSON response from API (Status ${responseStatus})`);
+      }
       
       if (response.ok && data.token) {
         shiprocketToken = data.token;
@@ -70,15 +79,18 @@ async function startServer() {
       }
     } catch (error: any) {
       console.error("Shiprocket Connection Error:", error);
-      throw new Error(error.message.includes("Shiprocket Auth Failed") ? error.message : `Failed to connect to Shiprocket: ${error.message}`);
+      throw new Error(error.message.includes("Shiprocket Auth") ? error.message : `Failed to connect to Shiprocket: ${error.message}`);
     }
   }
 
   // API routes
   app.post("/api/shiprocket/order", async (req, res) => {
+    console.log("API: Received Shiprocket order request");
     try {
       const token = await getShiprocketToken();
       const orderData = req.body;
+
+      console.log(`API: Processing order ${orderData.id} for ${orderData.customerName}`);
 
       // Validate address length (Shiprocket requirement: min 10 chars)
       const address = orderData.customerAddress || "";
@@ -130,7 +142,7 @@ async function startServer() {
           
           if (pickupResponse.ok) {
             const pickupData = await pickupResponse.json();
-            console.log("Shiprocket: Pickup locations response:", JSON.stringify(pickupData));
+            console.log("Shiprocket: Pickup locations fetched successfully");
             
             // Try multiple common paths for pickup locations
             let locations = [];
@@ -162,7 +174,7 @@ async function startServer() {
         }
       }
 
-      console.log("Sending to Shiprocket:", JSON.stringify(shiprocketOrder, null, 2));
+      console.log("Shiprocket: Sending order creation request...");
 
       const response = await fetch("https://apiv2.shiprocket.in/v1/external/orders/create/adhoc", {
         method: "POST",
@@ -175,9 +187,22 @@ async function startServer() {
       });
 
       const responseStatus = response.status;
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      let data: any;
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error(`Shiprocket Order: Received non-JSON response (Status ${responseStatus}):`, text);
+        return res.status(responseStatus).json({
+          error: `Shiprocket API Error (Status ${responseStatus})`,
+          details: text
+        });
+      }
       
       if (!response.ok) {
+        console.error(`Shiprocket Order Failed (Status ${responseStatus}):`, data);
         if (responseStatus === 422) {
           return res.status(422).json({ 
             error: "Shiprocket validation failed", 
@@ -190,10 +215,14 @@ async function startServer() {
         });
       }
 
+      console.log(`Shiprocket: Order created successfully. ID: ${data.order_id}`);
       res.json(data);
     } catch (error: any) {
       console.error("Shiprocket Order Error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: error.message || "Internal server error during Shiprocket sync",
+        details: error.stack
+      });
     }
   });
 

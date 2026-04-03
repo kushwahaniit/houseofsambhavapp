@@ -201,7 +201,15 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               ...apiOrderData
             }),
           });
-          const shiprocketResult = await response.json();
+          
+          let shiprocketResult;
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            shiprocketResult = await response.json();
+          } else {
+            const text = await response.text();
+            shiprocketResult = { error: "Non-JSON response", details: text };
+          }
           
           if (response.ok) {
             if (shiprocketResult.status_code === 1 || shiprocketResult.order_id) {
@@ -212,7 +220,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
           } else {
             // Handle error response
             const errorMsg = shiprocketResult.error || shiprocketResult.message || 'Unknown error';
-            const details = shiprocketResult.details ? JSON.stringify(shiprocketResult.details, null, 2) : 'No details';
+            const details = shiprocketResult.details ? (typeof shiprocketResult.details === 'object' ? JSON.stringify(shiprocketResult.details, null, 2) : shiprocketResult.details) : 'No details';
             
             if (response.status === 422) {
               alert('SHIPROCKET VALIDATION FAILED (422):\n\n' + errorMsg + '\n\nDetails:\n' + details + '\n\nCommon issues: Invalid Pincode, missing Pickup Location, or address too short.');
@@ -220,9 +228,9 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               alert('SHIPROCKET SYNC FAILED (' + response.status + '):\n\n' + errorMsg + '\n\nDetails:\n' + details);
             }
           }
-        } catch (srError) {
+        } catch (srError: any) {
           console.error('Shiprocket Sync Error:', srError);
-          alert('Order created in local DB but failed to sync with Shiprocket. Check console for details.');
+          alert('Order created in local DB but failed to sync with Shiprocket.\n\nError: ' + (srError.message || 'Network error or server crash') + '\n\nPlease check if Shiprocket credentials are set in AI Studio Secrets.');
         }
       }
       // 2. Create a billing record automatically
