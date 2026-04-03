@@ -52,11 +52,12 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
     return unsubscribe;
   }, []);
 
-  const filteredCustomers = customers.filter(customer => 
-    (customer.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (customer.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (customer.phone || '').includes(searchTerm)
-  );
+  const filteredCustomers = customers.filter(customer => {
+    const searchLower = searchTerm.toLowerCase();
+    return (customer.name || '').toLowerCase().includes(searchLower) ||
+           (customer.email || '').toLowerCase().includes(searchLower) ||
+           (customer.phone || '').includes(searchTerm);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

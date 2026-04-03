@@ -70,10 +70,11 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
+      (order.id || '').toLowerCase().includes(searchLower) ||
+      (order.customerName || '').toLowerCase().includes(searchLower) ||
+      (order.customerEmail || '').toLowerCase().includes(searchLower);
     return matchesStatus && matchesSearch;
   });
 
@@ -192,7 +193,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         try {
           // Remove serverTimestamp as it's not JSON serializable
           const { date, ...apiOrderData } = orderData;
-          const response = await fetch('/api/shiprocket/order', {
+          const response = await fetch('/api/shiprocket', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -418,7 +419,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               try {
                 const res = await fetch('/api/health');
                 const data = await res.json();
-                alert('BACKEND STATUS: ' + data.status + '\nTimestamp: ' + data.timestamp);
+                alert('BACKEND STATUS: ' + data.status + '\nTimestamp: ' + data.timestamp + '\nEnv: ' + (data.environment || 'Local Server'));
               } catch (err) {
                 alert('BACKEND ERROR: ' + (err instanceof Error ? err.message : String(err)));
               }

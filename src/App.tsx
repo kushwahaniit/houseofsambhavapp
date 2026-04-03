@@ -262,7 +262,16 @@ function AppContent() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 transition-colors duration-300">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 transition-colors duration-300 relative">
+        <div className="absolute top-6 right-6">
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-3 bg-white dark:bg-stone-800 text-stone-50 dark:text-stone-400 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
         <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-md w-full text-center">
           <div className="w-24 h-24 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
             <img 
@@ -271,7 +280,7 @@ function AppContent() {
               className="w-full h-full object-contain p-2"
               referrerPolicy="no-referrer"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
+                (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=House+of+Sambhav&background=78350f&color=fff&bold=true&size=256";
               }}
             />
           </div>
@@ -461,7 +470,16 @@ function AppContent() {
 
   if (needs2FA && !is2FAVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 transition-colors duration-300">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 transition-colors duration-300 relative">
+        <div className="absolute top-6 right-6">
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-3 bg-white dark:bg-stone-800 text-stone-50 dark:text-stone-400 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
         <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-md w-full text-center">
           <div className="w-24 h-24 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
             <img 
@@ -550,7 +568,7 @@ function AppContent() {
                 className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl object-contain p-1 shadow-sm border border-stone-100 dark:border-stone-700"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
+                  (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=House+of+Sambhav&background=78350f&color=fff&bold=true&size=256";
                 }}
               />
             </div>

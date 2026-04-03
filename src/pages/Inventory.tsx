@@ -80,8 +80,9 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
   }, []);
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = (product.name || '').toLowerCase().includes(searchLower) || 
+                         (product.sku || '').toLowerCase().includes(searchLower);
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });

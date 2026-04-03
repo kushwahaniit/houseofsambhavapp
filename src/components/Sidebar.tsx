@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, setI
                   className="w-full h-full object-contain p-1"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
+                    (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=House+of+Sambhav&background=78350f&color=fff&bold=true&size=256";
                   }}
                 />
               </div>
