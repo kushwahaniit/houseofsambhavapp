@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp,
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Order, Product, OrderItem } from '@/src/types';
+import logo from '../assets/logo.png';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -382,7 +383,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden shrink-0">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-1"
               referrerPolicy="no-referrer"
@@ -749,7 +750,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
                   <img 
-                    src="/logo.png" 
+                    src={logo} 
                     alt="House of Sambhav Logo" 
                     className="w-full h-full object-contain p-1"
                     referrerPolicy="no-referrer"
@@ -779,7 +780,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                   <div className="flex items-center justify-end gap-3 mb-1">
                     <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-stone-100 overflow-hidden">
                       <img 
-                        src="/logo.png" 
+                        src={logo} 
                         alt="House of Sambhav Logo" 
                         className="w-full h-full object-contain p-1"
                         referrerPolicy="no-referrer"

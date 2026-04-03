@@ -32,6 +32,7 @@ import { auth, db, firebaseConfig } from '@/src/firebase';
 import { Role, User } from '@/src/types';
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 import { authenticator } from '@otplib/preset-browser';
+import logo from '../assets/logo.png';
 import QRCode from 'qrcode';
 
 const Settings: React.FC = () => {
@@ -401,7 +402,7 @@ const Settings: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-800 overflow-hidden shrink-0">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-1"
               referrerPolicy="no-referrer"

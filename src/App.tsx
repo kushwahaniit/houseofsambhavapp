@@ -4,6 +4,7 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmai
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import Sidebar from './components/Sidebar';
+import logo from './assets/logo.png';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Orders from './pages/Orders';
@@ -265,7 +266,7 @@ function AppContent() {
         <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-md w-full text-center">
           <div className="w-24 h-24 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-2"
               referrerPolicy="no-referrer"
@@ -464,7 +465,7 @@ function AppContent() {
         <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-md w-full text-center">
           <div className="w-24 h-24 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-2"
               referrerPolicy="no-referrer"
@@ -544,7 +545,7 @@ function AppContent() {
             </button>
             <div className="flex items-center gap-3 lg:hidden">
               <img 
-                src="/logo.png" 
+                src={logo} 
                 alt="Logo" 
                 className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl object-contain p-1 shadow-sm border border-stone-100 dark:border-stone-700"
                 referrerPolicy="no-referrer"

@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, serve
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Category, Product } from '@/src/types';
+import logo from '../assets/logo.png';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -267,7 +268,7 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-800 overflow-hidden shrink-0">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-1"
               referrerPolicy="no-referrer"

@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { auth } from '@/src/firebase';
 import { signOut } from 'firebase/auth';
+import logo from '../assets/logo.png';
 
 interface SidebarProps {
   activeTab: string;
@@ -77,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, setI
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden">
                 <img 
-                  src="/logo.png" 
+                  src={logo} 
                   alt="House of Sambhav Logo" 
                   className="w-full h-full object-contain p-1"
                   referrerPolicy="no-referrer"

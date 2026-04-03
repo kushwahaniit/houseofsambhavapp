@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, getDoc
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Customer } from '@/src/types';
+import logo from '../assets/logo.png';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -136,7 +137,7 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-800 overflow-hidden shrink-0">
             <img 
-              src="/logo.png" 
+              src={logo} 
               alt="House of Sambhav Logo" 
               className="w-full h-full object-contain p-1"
               referrerPolicy="no-referrer"
