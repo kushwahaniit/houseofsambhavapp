@@ -371,9 +371,22 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-50">Order Management</h2>
-          <p className="text-stone-500 dark:text-stone-400">Track and manage customer orders across all channels.</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-700 overflow-hidden shrink-0">
+            <img 
+              src="/logo.png" 
+              alt="House of Sambhav Logo" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
+              }}
+            />
+          </div>
+          <div>
+            <h2 className="text-2xl font-serif font-bold text-stone-900 dark:text-stone-50">Order Management</h2>
+            <p className="text-stone-500 dark:text-stone-400">Track and manage customer orders across all channels.</p>
+          </div>
         </div>
         <div className="flex gap-3">
           <button className="flex items-center justify-center gap-2 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">

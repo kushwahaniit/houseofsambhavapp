@@ -65,9 +65,22 @@ const Help: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="max-w-3xl">
-        <h2 className="text-3xl font-serif font-bold text-stone-900 mb-2">Help Center</h2>
-        <p className="text-stone-500 text-lg">Everything you need to know about managing House of Sambhav with this platform.</p>
+      <div className="flex items-center gap-4 max-w-3xl">
+        <div className="w-12 h-12 bg-white dark:bg-stone-800 rounded-2xl flex items-center justify-center shadow-sm border border-stone-100 dark:border-stone-800 overflow-hidden shrink-0">
+          <img 
+            src="/logo.png" 
+            alt="House of Sambhav Logo" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "https://picsum.photos/seed/houseofsambhav/200/200";
+            }}
+          />
+        </div>
+        <div>
+          <h2 className="text-3xl font-serif font-bold text-stone-900 dark:text-stone-50 mb-2">Help Center</h2>
+          <p className="text-stone-500 dark:text-stone-400 text-lg">Everything you need to know about managing House of Sambhav with this platform.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
