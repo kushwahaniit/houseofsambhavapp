@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the system with specific roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "store_manager", "staff"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A fashion item in the inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Jewelry", "Lehenga", "Kurti", "Suit"] },
+        "price": { "type": "number" },
+        "stock": { "type": "integer" },
+        "image": { "type": "string", "format": "uri" },
+        "sku": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "price", "stock", "sku"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email" },
+        "customerPhone": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Shipped", "Delivered", "Cancelled"] },
+        "channel": { "type": "string", "enum": ["Website", "Offline", "Facebook", "Instagram", "Whatsapp"] },
+        "items": { "type": "integer" },
+        "billingId": { "type": "string" }
+      },
+      "required": ["customerName", "total", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "A customer profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "totalOrders": { "type": "integer" },
+        "totalSpent": { "type": "number" },
+        "lastOrder": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email"]
+    },
+    "Billing": {
+      "title": "Billing",
+      "description": "A billing transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["Cash", "Card", "UPI", "Net Banking"] },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Failed"] },
+        "processedBy": { "type": "string", "description": "UID of the staff who processed it" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "amount", "paymentMethod", "status"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "System configuration settings.",
+      "type": "object",
+      "properties": {
+        "pickupLocation": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles and roles."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "Product" },
+      "description": "Inventory products."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "Order" },
+      "description": "Customer orders."
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "Customer" },
+      "description": "Customer directory."
+    },
+    "/billing/{billingId}": {
+      "schema": { "$ref": "Billing" },
+      "description": "Billing transactions."
+    },
+    "/config/{configId}": {
+      "schema": { "$ref": "Config" },
+      "description": "System configuration settings."
+    }
+  }
+}

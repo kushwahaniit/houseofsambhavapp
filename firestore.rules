@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - email: string (required) - User email
+    //   - name: string - User full name
+    //   - role: string (required, enum: ['super_admin', 'staff']) - Access role
+    //   - createdAt: timestamp - Creation date
+    //
+    // Collection: products
+    // Document ID: {productId}
+    // Fields:
+    //   - name: string (required)
+    //   - category: string (required, enum: ['Jewelry', 'Lehenga', 'Kurti', 'Suit'])
+    //   - price: number (required)
+    //   - stock: number (required)
+    //   - image: string (uri)
+    //   - sku: string (required)
+    //   - updatedAt: timestamp
+    //
+    // Collection: orders
+    // Document ID: {orderId}
+    // Fields:
+    //   - customerName: string (required)
+    //   - total: number (required)
+    //   - status: string (required, enum: ['Pending', 'Shipped', 'Delivered', 'Cancelled'])
+    //   - items: number
+    //   - date: timestamp
+    //
+    // Collection: billing
+    // Document ID: {billingId}
+    // Fields:
+    //   - orderId: string (required)
+    //   - amount: number (required)
+    //   - paymentMethod: string (required, enum: ['Cash', 'Card', 'UPI', 'Net Banking'])
+    //   - status: string (required, enum: ['Paid', 'Pending', 'Failed'])
+    //   - processedBy: string (staff uid)
+    //   - timestamp: timestamp
+    //
+    // Collection: config
+    // Document ID: {configId}
+    // Fields:
+    //   - pickupLocation: string
+    //   - updatedAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == 'kushwahaniit@gmail.com' || 
+         request.auth.token.email == 'learnnovative@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'));
+    }
+
+    function isProtectedAdmin(email) {
+      return email in ['kushwahaniit@gmail.com', 'learnnovative@gmail.com'];
+    }
+
+    function isStoreManager() {
+      return isAuthenticated() && (getUserData().role == 'store_manager' || isSuperAdmin());
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (getUserData().role == 'staff' || isStoreManager());
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidConfig(data) {
+      return (data.get('pickupLocation', '') is string) &&
+             (data.get('updatedAt', request.time) is timestamp);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated() && (
+        isOwner(uid) || 
+        isSuperAdmin() || 
+        (resource != null && resource.data.email == request.auth.token.email)
+      );
+      allow create: if isAuthenticated() && (isOwner(uid) || isSuperAdmin()) && 
+        request.resource.data.keys().hasAll(['uid', 'email', 'role']) &&
+        request.resource.data.role in ['super_admin', 'store_manager', 'staff'] &&
+        (request.resource.data.role != 'super_admin' || isSuperAdmin());
+      allow update: if isAuthenticated() && (isOwner(uid) || isSuperAdmin()) &&
+        // Prevent changing role of protected admins
+        (!isProtectedAdmin(resource.data.email) || request.resource.data.role == resource.data.role) &&
+        // Only super admins can change roles
+        (request.resource.data.role == resource.data.role || isSuperAdmin());
+      allow delete: if isSuperAdmin() && !isProtectedAdmin(resource.data.email);
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isStoreManager();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /billing/{billingId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+        (request.auth.token.email == 'kushwahaniit@gmail.com' || 
+         request.auth.token.email == 'learnnovative@gmail.com' ||
+         isSuperAdmin());
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+  }
+}
