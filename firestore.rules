@@ -62,7 +62,8 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : {};
     }
 
     function isSuperAdmin() {
@@ -78,11 +79,11 @@ service cloud.firestore {
     }
 
     function isStoreManager() {
-      return isAuthenticated() && (getUserData().role == 'store_manager' || isSuperAdmin());
+      return isAuthenticated() && (isSuperAdmin() || getUserData().get('role', '') == 'store_manager');
     }
 
     function isStaff() {
-      return isAuthenticated() && (getUserData().role == 'staff' || isStoreManager());
+      return isAuthenticated() && (isSuperAdmin() || isStoreManager() || getUserData().get('role', '') == 'staff');
     }
 
     function isOwner(userId) {

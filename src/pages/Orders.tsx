@@ -30,7 +30,8 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     customerState: '',
     status: 'Pending' as Order['status'],
     channel: 'Website' as Order['channel'],
-    items: [] as OrderItem[]
+    items: [] as OrderItem[],
+    discount: 0
   });
 
   const [currentItem, setCurrentItem] = useState({
@@ -60,6 +61,8 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         ...doc.data()
       })) as Product[];
       setProducts(prods);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
     });
 
     return () => {
@@ -108,8 +111,14 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     }));
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const discountAmount = (subtotal * (formData.discount || 0)) / 100;
+    return subtotal - discountAmount;
   };
 
   const clearAllOrders = async () => {
@@ -169,6 +178,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     }
 
     try {
+      const subtotal = calculateSubtotal();
       const orderTotal = calculateTotal();
       const orderData = {
         customerName: formData.customerName,
@@ -178,6 +188,8 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         customerCity: formData.customerCity,
         customerPincode: formData.customerPincode,
         customerState: formData.customerState,
+        subtotal: subtotal,
+        discount: formData.discount,
         total: orderTotal,
         items: formData.items,
         status: formData.status,
@@ -296,7 +308,8 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         customerState: '',
         items: [], 
         status: 'Pending', 
-        channel: 'Website' 
+        channel: 'Website',
+        discount: 0
       });
     } catch (error) {
       console.error('Order Creation Error:', error);
@@ -687,9 +700,34 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                 </div>
 
                 {formData.items.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700 flex justify-between items-center">
-                    <span className="text-sm font-bold text-stone-900 dark:text-stone-50">Total Amount:</span>
-                    <span className="text-lg font-bold text-amber-700 dark:text-amber-500">{formatCurrency(calculateTotal())}</span>
+                  <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-stone-600 dark:text-stone-400">Subtotal:</span>
+                      <span className="text-sm font-bold text-stone-900 dark:text-stone-50">{formatCurrency(calculateSubtotal())}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-stone-600 dark:text-stone-400">Discount (%):</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          max="25"
+                          className="w-16 px-2 py-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs outline-none dark:text-stone-100"
+                          value={formData.discount}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setFormData({...formData, discount: Math.min(25, Math.max(0, val))});
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                        -{formatCurrency((calculateSubtotal() * (formData.discount || 0)) / 100)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-stone-100 dark:border-stone-800">
+                      <span className="text-sm font-bold text-stone-900 dark:text-stone-50">Total Amount:</span>
+                      <span className="text-lg font-bold text-amber-700 dark:text-amber-500">{formatCurrency(calculateTotal())}</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -843,6 +881,20 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                   )) : (
                     <p className="text-stone-500 dark:text-stone-400 text-sm italic">Legacy order with no item details.</p>
                   )}
+                  
+                  {selectedOrder.discount && selectedOrder.discount > 0 ? (
+                    <>
+                      <div className="pt-3 border-t border-stone-200 dark:border-stone-700 flex justify-between text-sm">
+                        <span className="text-stone-600 dark:text-stone-400">Subtotal</span>
+                        <span className="font-medium text-stone-900 dark:text-stone-50">{formatCurrency(selectedOrder.subtotal || selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0))}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600 dark:text-stone-400">Discount ({selectedOrder.discount}%)</span>
+                        <span className="font-medium text-rose-600 dark:text-rose-400">-{formatCurrency((selectedOrder.subtotal || selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)) * selectedOrder.discount / 100)}</span>
+                      </div>
+                    </>
+                  ) : null}
+
                   <div className="pt-3 border-t border-stone-200 dark:border-stone-700 flex justify-between items-center">
                     <span className="font-bold text-stone-900 dark:text-stone-50">Total Paid</span>
                     <span className="text-xl font-bold text-amber-700 dark:text-amber-500">{formatCurrency(selectedOrder.total)}</span>

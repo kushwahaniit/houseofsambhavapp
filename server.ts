@@ -89,7 +89,7 @@ async function startServer() {
   }
 
   // API routes
-  app.post("/api/shiprocket/order", async (req, res) => {
+  app.post(["/api/shiprocket/order", "/api/shiprocket"], async (req, res) => {
     console.log("API: Received Shiprocket order request");
     try {
       const token = await getShiprocketToken();
@@ -126,7 +126,8 @@ async function startServer() {
           hsn: "",
         })),
         payment_method: "Prepaid",
-        sub_total: orderData.total,
+        sub_total: orderData.subtotal || orderData.total,
+        discount: (orderData.subtotal || orderData.total) - orderData.total,
         length: 10,
         breadth: 10,
         height: 10,

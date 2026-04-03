@@ -3,7 +3,7 @@ import { Search, Mail, Phone, Calendar, ArrowRight, UserPlus, X, Database, Trash
 import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
-import { Customer } from '@/src/types';
+import { Customer, Order } from '@/src/types';
 import logo from '../assets/logo.png';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
@@ -14,6 +14,7 @@ interface CustomersProps {
 
 const Customers: React.FC<CustomersProps> = ({ userRole }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -49,8 +50,40 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'customers');
     });
-    return unsubscribe;
+
+    const ordersQ = query(collection(db, 'orders'));
+    const unsubscribeOrders = onSnapshot(ordersQ, (snapshot) => {
+      const ords = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate().toISOString().split('T')[0] || new Date().toISOString().split('T')[0]
+      })) as any[];
+      setOrders(ords);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'orders');
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeOrders();
+    };
   }, []);
+
+  const getCustomerStats = (customer: Customer) => {
+    const customerOrders = orders.filter(o => 
+      (customer.email && o.customerEmail && o.customerEmail === customer.email) || 
+      (customer.phone && o.customerPhone && o.customerPhone === customer.phone) ||
+      (o.customerName && o.customerName === customer.name)
+    );
+    
+    const totalSpent = customerOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalOrders = customerOrders.length;
+    const lastOrder = customerOrders.length > 0 
+      ? customerOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date
+      : 'Never';
+
+    return { totalOrders, totalSpent, lastOrder };
+  };
 
   const filteredCustomers = customers.filter(customer => {
     const searchLower = searchTerm.toLowerCase();
@@ -203,56 +236,59 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
             <p className="text-stone-400 dark:text-stone-500">No customers found.</p>
           </div>
         ) : (
-          filteredCustomers.map((customer) => (
-            <div key={customer.id} className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-600 dark:text-stone-400 text-xl font-bold">
-                  {customer.name.split(' ').map(n => n[0]).join('')}
+          filteredCustomers.map((customer) => {
+            const stats = getCustomerStats(customer);
+            return (
+              <div key={customer.id} className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-all group">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-600 dark:text-stone-400 text-xl font-bold">
+                    {customer.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-stone-900 dark:text-stone-50 text-lg">{customer.name}</h3>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">ID: {customer.id.substring(0, 8)}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-stone-900 dark:text-stone-50 text-lg">{customer.name}</h3>
-                  <p className="text-sm text-stone-500 dark:text-stone-400">ID: {customer.id.substring(0, 8)}</p>
-                </div>
-              </div>
 
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
-                  <Mail size={16} className="text-stone-400 dark:text-stone-500" />
-                  <span className="text-sm">{customer.email}</span>
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
+                    <Mail size={16} className="text-stone-400 dark:text-stone-500" />
+                    <span className="text-sm">{customer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
+                    <Phone size={16} className="text-stone-400 dark:text-stone-500" />
+                    <span className="text-sm">{customer.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
+                    <Calendar size={16} className="text-stone-400 dark:text-stone-500" />
+                    <span className="text-sm">Last order: {stats.lastOrder}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
-                  <Phone size={16} className="text-stone-400 dark:text-stone-500" />
-                  <span className="text-sm">{customer.phone}</span>
-                </div>
-                <div className="flex items-center gap-3 text-stone-600 dark:text-stone-400">
-                  <Calendar size={16} className="text-stone-400 dark:text-stone-500" />
-                  <span className="text-sm">Last order: {customer.lastOrder}</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-6 border-t border-stone-100 dark:border-stone-800">
-                <div>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Orders</p>
-                  <p className="font-bold text-stone-900 dark:text-stone-50">{customer.totalOrders}</p>
+                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-stone-100 dark:border-stone-800">
+                  <div>
+                    <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Orders</p>
+                    <p className="font-bold text-stone-900 dark:text-stone-50">{stats.totalOrders}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Spent</p>
+                    <p className="font-bold text-amber-700 dark:text-amber-500">{formatCurrency(stats.totalSpent)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Spent</p>
-                  <p className="font-bold text-amber-700 dark:text-amber-500">{formatCurrency(customer.totalSpent)}</p>
-                </div>
-              </div>
 
-              <button 
-                onClick={() => {
-                  setSelectedCustomer(customer);
-                  setIsProfileOpen(true);
-                }}
-                className="w-full mt-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-600 transition-all"
-              >
-                <span>View Profile</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          ))
+                <button 
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setIsProfileOpen(true);
+                  }}
+                  className="w-full mt-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-600 transition-all"
+                >
+                  <span>View Profile</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -290,24 +326,31 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-6 mb-8">
-                <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                  <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Orders</p>
-                  <p className="text-xl font-bold text-stone-900 dark:text-stone-50">{selectedCustomer.totalOrders}</p>
-                </div>
-                <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                  <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Spent</p>
-                  <p className="text-xl font-bold text-amber-700 dark:text-amber-500">{formatCurrency(selectedCustomer.totalSpent)}</p>
-                </div>
-                <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
-                  <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Avg. Order</p>
-                  <p className="text-xl font-bold text-stone-900 dark:text-stone-50">
-                    {selectedCustomer.totalOrders > 0 
-                      ? formatCurrency(selectedCustomer.totalSpent / selectedCustomer.totalOrders)
-                      : formatCurrency(0)}
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const stats = getCustomerStats(selectedCustomer);
+                return (
+                  <>
+                    <div className="grid grid-cols-3 gap-6 mb-8">
+                      <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                        <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Orders</p>
+                        <p className="text-xl font-bold text-stone-900 dark:text-stone-50">{stats.totalOrders}</p>
+                      </div>
+                      <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                        <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Total Spent</p>
+                        <p className="text-xl font-bold text-amber-700 dark:text-amber-500">{formatCurrency(stats.totalSpent)}</p>
+                      </div>
+                      <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-100 dark:border-stone-700">
+                        <p className="text-xs text-stone-400 dark:text-stone-500 uppercase font-bold tracking-wider mb-1">Avg. Order</p>
+                        <p className="text-xl font-bold text-stone-900 dark:text-stone-50">
+                          {stats.totalOrders > 0 
+                            ? formatCurrency(stats.totalSpent / stats.totalOrders)
+                            : formatCurrency(0)}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               <div className="space-y-4">
                 <h4 className="font-bold text-stone-900 dark:text-stone-50">Contact Information</h4>

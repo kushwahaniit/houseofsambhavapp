@@ -41,6 +41,8 @@ export interface Order {
   customerState?: string;
   date: string;
   total: number;
+  subtotal?: number;
+  discount?: number;
   status: 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
   channel: OrderChannel;
   items: OrderItem[];

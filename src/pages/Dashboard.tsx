@@ -67,6 +67,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
         date: doc.data().date?.toDate().toISOString().split('T')[0] || 'Just now'
       })) as Order[];
       setRecentOrders(ords);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'orders');
     });
 
     // Fetch all orders for stats
@@ -98,6 +100,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
       });
       const cData = Object.entries(channels).map(([name, value]) => ({ name, value }));
       setChannelData(cData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'orders');
     });
 
     // Fetch low stock items
@@ -110,6 +114,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
         prev[2],
         { ...prev[3], value: lowStock.toString(), trend: lowStock > 5 ? 'Critical' : 'Stable', isUp: lowStock <= 5 }
       ]);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
     });
 
     // Fetch customers
@@ -121,6 +127,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
         { ...prev[2], value: snapshot.size.toString() },
         prev[3]
       ]);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'customers');
     });
 
     // Check if database is empty

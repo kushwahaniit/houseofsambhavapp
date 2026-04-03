@@ -82,7 +82,8 @@ export const handler: Handler = async (event, context) => {
         hsn: ""
       })),
       payment_method: "Prepaid",
-      sub_total: orderData.total,
+      sub_total: orderData.subtotal || orderData.total,
+      discount: (orderData.subtotal || orderData.total) - orderData.total,
       length: 10,
       width: 10,
       height: 10,
