@@ -234,15 +234,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    const publicPath = path.join(process.cwd(), 'public');
+    const distPath = path.resolve(process.cwd(), 'dist');
+    const publicPath = path.resolve(process.cwd(), 'public');
     
-    // Serve static files from both dist and public
+    // Serve static files from both dist and public to be safe
     app.use(express.static(distPath));
     app.use(express.static(publicPath));
     
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
 
