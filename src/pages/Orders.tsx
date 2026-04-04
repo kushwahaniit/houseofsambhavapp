@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckCircle, Clock, Truck, Ban, Trash2, ShoppingBag, Database } from 'lucide-react';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDocs, where, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDocs, where, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Order, Product, OrderItem } from '@/src/types';
@@ -20,6 +20,8 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [timeFilter, setTimeFilter] = useState('All Time');
+  const [showAll, setShowAll] = useState(false);
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -78,8 +80,32 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       (order.id || '').toLowerCase().includes(searchLower) ||
       (order.customerName || '').toLowerCase().includes(searchLower) ||
       (order.customerEmail || '').toLowerCase().includes(searchLower);
-    return matchesStatus && matchesSearch;
+    
+    // Time filtering
+    const orderDate = new Date(order.date);
+    const now = new Date();
+    // Normalize now to start of day for accurate comparison
+    now.setHours(0, 0, 0, 0);
+    let matchesTime = true;
+
+    if (timeFilter === 'Last 7 Days') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      matchesTime = orderDate >= sevenDaysAgo;
+    } else if (timeFilter === 'Last 30 Days') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      matchesTime = orderDate >= thirtyDaysAgo;
+    } else if (timeFilter === 'Last Month') {
+      const lastMonth = new Date();
+      lastMonth.setMonth(now.getMonth() - 1);
+      matchesTime = orderDate.getMonth() === lastMonth.getMonth() && orderDate.getFullYear() === lastMonth.getFullYear();
+    }
+
+    return matchesStatus && matchesSearch && matchesTime;
   });
+
+  const displayOrders = showAll ? filteredOrders : filteredOrders.slice(0, 5);
 
   const addItemToOrder = () => {
     if (!currentItem.productId) {
@@ -197,10 +223,77 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
         date: serverTimestamp()
       };
 
-      // 1. Create the order
-      const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      // 1. Prepare Batch
+      const batch = writeBatch(db);
+
+      // 2. Create the order
+      const orderRef = doc(collection(db, 'orders'));
+      batch.set(orderRef, orderData);
+
+      // 3. Update Inventory
+      for (const item of formData.items) {
+        const productRef = doc(db, 'products', item.productId);
+        batch.update(productRef, {
+          stock: increment(-item.quantity)
+        });
+      }
+
+      // 4. Create a billing record
+      const billingRef = doc(collection(db, 'billing'));
+      batch.set(billingRef, {
+        orderId: orderRef.id,
+        amount: orderTotal,
+        paymentMethod: 'Pending',
+        status: 'Pending',
+        processedBy: 'System',
+        timestamp: serverTimestamp()
+      });
+
+      // 5. Sync with customers collection
+      const customerEmail = formData.customerEmail;
+      const customerPhone = formData.customerPhone;
       
-      // 2. Shiprocket Integration
+      if (customerEmail || customerPhone) {
+        let q;
+        if (customerEmail) {
+          q = query(collection(db, 'customers'), where('email', '==', customerEmail));
+        } else {
+          q = query(collection(db, 'customers'), where('phone', '==', customerPhone));
+        }
+        
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          // Update existing customer
+          const customerDoc = querySnapshot.docs[0];
+          const currentData = customerDoc.data() as any;
+          batch.update(doc(db, 'customers', customerDoc.id), {
+            totalOrders: (currentData.totalOrders || 0) + 1,
+            totalSpent: (currentData.totalSpent || 0) + orderTotal,
+            lastOrder: new Date().toISOString().split('T')[0],
+            phone: currentData.phone === 'N/A' ? customerPhone : currentData.phone,
+            email: currentData.email || customerEmail,
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          // Create new customer
+          const newCustomerRef = doc(collection(db, 'customers'));
+          batch.set(newCustomerRef, {
+            name: formData.customerName,
+            email: customerEmail || '',
+            phone: customerPhone || 'N/A',
+            totalOrders: 1,
+            totalSpent: orderTotal,
+            lastOrder: new Date().toISOString().split('T')[0],
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+
+      // 6. Commit Batch
+      await batch.commit();
+      
+      // 7. Shiprocket Integration (Post-commit)
       if (formData.channel !== 'Offline') {
         try {
           // Remove serverTimestamp as it's not JSON serializable
@@ -247,55 +340,6 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
           alert('Order created in local DB but failed to sync with Shiprocket.\n\nError: ' + (srError.message || 'Network error or server crash') + '\n\nPlease check if Shiprocket credentials are set in AI Studio Secrets.');
         }
       }
-      // 2. Create a billing record automatically
-      await addDoc(collection(db, 'billing'), {
-        orderId: orderRef.id,
-        amount: orderTotal,
-        paymentMethod: 'Pending',
-        status: 'Pending',
-        processedBy: 'System',
-        timestamp: serverTimestamp()
-      });
-
-      // 3. Sync with customers collection
-      const customerEmail = formData.customerEmail;
-      const customerPhone = formData.customerPhone;
-      
-      if (customerEmail || customerPhone) {
-        let q;
-        if (customerEmail) {
-          q = query(collection(db, 'customers'), where('email', '==', customerEmail));
-        } else {
-          q = query(collection(db, 'customers'), where('phone', '==', customerPhone));
-        }
-        
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          // Update existing customer
-          const customerDoc = querySnapshot.docs[0];
-          const currentData = customerDoc.data() as any;
-          await updateDoc(doc(db, 'customers', customerDoc.id), {
-            totalOrders: (currentData.totalOrders || 0) + 1,
-            totalSpent: (currentData.totalSpent || 0) + orderTotal,
-            lastOrder: new Date().toISOString().split('T')[0],
-            phone: currentData.phone === 'N/A' ? customerPhone : currentData.phone,
-            email: currentData.email || customerEmail,
-            updatedAt: serverTimestamp()
-          });
-        } else {
-          // Create new customer
-          await addDoc(collection(db, 'customers'), {
-            name: formData.customerName,
-            email: customerEmail || '',
-            phone: customerPhone || 'N/A',
-            totalOrders: 1,
-            totalSpent: orderTotal,
-            lastOrder: new Date().toISOString().split('T')[0],
-            createdAt: serverTimestamp()
-          });
-        }
-      }
 
       setIsModalOpen(false);
       setFormData({ 
@@ -320,7 +364,34 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
 
   const updateStatus = async (id: string, newStatus: Order['status']) => {
     try {
-      await updateDoc(doc(db, 'orders', id), { status: newStatus });
+      const orderRef = doc(db, 'orders', id);
+      const orderSnap = await getDoc(orderRef);
+      if (!orderSnap.exists()) return;
+      const orderData = orderSnap.data() as Order;
+      const oldStatus = orderData.status;
+
+      const batch = writeBatch(db);
+
+      if (oldStatus !== 'Cancelled' && newStatus === 'Cancelled') {
+        // Return stock
+        for (const item of orderData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          batch.update(productRef, {
+            stock: increment(item.quantity)
+          });
+        }
+      } else if (oldStatus === 'Cancelled' && newStatus !== 'Cancelled') {
+        // Re-decrement stock
+        for (const item of orderData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          batch.update(productRef, {
+            stock: increment(-item.quantity)
+          });
+        }
+      }
+
+      batch.update(orderRef, { status: newStatus });
+      await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `orders/${id}`);
     }
@@ -427,22 +498,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               <span>{isClearing ? 'Clearing...' : 'Clear Data'}</span>
             </button>
           )}
-          <button 
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/health');
-                const data = await res.json();
-                alert('BACKEND STATUS: ' + data.status + '\nTimestamp: ' + data.timestamp + '\nEnv: ' + (data.environment || 'Local Server'));
-              } catch (err) {
-                alert('BACKEND ERROR: ' + (err instanceof Error ? err.message : String(err)));
-              }
-            }}
-            className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-            title="Test connection to backend API"
-          >
-            <Database size={18} />
-            <span>Test API</span>
-          </button>
+
           <button 
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors"
@@ -466,6 +522,19 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
             />
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+            <select 
+              className="px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-medium outline-none dark:text-stone-100"
+              value={timeFilter}
+              onChange={(e) => {
+                setTimeFilter(e.target.value);
+                setShowAll(false); // Reset showAll when filter changes
+              }}
+            >
+              <option>All Time</option>
+              <option>Last 7 Days</option>
+              <option>Last 30 Days</option>
+              <option>Last Month</option>
+            </select>
             {['All', 'Pending', 'Shipped', 'Delivered', 'Cancelled'].map((status) => (
               <button
                 key={status}
@@ -497,12 +566,12 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-              {filteredOrders.length === 0 ? (
+              {displayOrders.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-stone-400 dark:text-stone-600">No orders found.</td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => (
+                displayOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group">
                     <td className="px-6 py-4 font-mono text-sm text-stone-600 dark:text-stone-400">{order.id.substring(0, 8)}</td>
                     <td className="px-6 py-4">
@@ -560,6 +629,28 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
             </tbody>
           </table>
         </div>
+
+        {!showAll && filteredOrders.length > 5 && (
+          <div className="p-4 border-t border-stone-100 dark:border-stone-800 text-center">
+            <button 
+              onClick={() => setShowAll(true)}
+              className="text-amber-700 dark:text-amber-500 font-bold hover:underline flex items-center justify-center gap-2 mx-auto"
+            >
+              <span>View All Transactions ({filteredOrders.length})</span>
+              <ExternalLink size={14} />
+            </button>
+          </div>
+        )}
+        {showAll && filteredOrders.length > 5 && (
+          <div className="p-4 border-t border-stone-100 dark:border-stone-800 text-center">
+            <button 
+              onClick={() => setShowAll(false)}
+              className="text-stone-500 dark:text-stone-400 font-bold hover:underline"
+            >
+              Show Less
+            </button>
+          </div>
+        )}
       </div>
 
       {/* New Order Modal */}

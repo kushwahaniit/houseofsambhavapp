@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, Bell, Search, User, LogIn, ShieldCheck, Mail, Lock, AlertCircle, Key, Smartphone, Sun, Moon } from 'lucide-react';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import Sidebar from './components/Sidebar';
@@ -25,7 +25,7 @@ export default function App() {
 
 function AppContent() {
   console.log('AppContent initializing...');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('inventory');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('staff');
@@ -61,6 +61,11 @@ function AppContent() {
   }, [isDarkMode]);
 
   useEffect(() => {
+    // Force session persistence so users aren't automatically logged in on launch
+    setPersistence(auth, browserSessionPersistence).catch(err => {
+      console.error('Error setting persistence:', err);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setNeeds2FA(false);
       setIs2FAVerified(false);
@@ -153,6 +158,8 @@ function AppContent() {
     setAuthLoading(true);
     setError('');
     const provider = new GoogleAuthProvider();
+    // Force account selection every time
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
     } catch (err: any) {
@@ -241,14 +248,23 @@ function AppContent() {
   };
 
   const renderContent = () => {
+    const isSuperAdmin = userRole === 'super_admin';
+    
     switch (activeTab) {
-      case 'dashboard': return <Dashboard userRole={userRole} />;
-      case 'inventory': return <Inventory userRole={userRole} />;
-      case 'orders': return <Orders userRole={userRole} />;
-      case 'customers': return <Customers userRole={userRole} />;
-      case 'help': return <Help />;
-      case 'settings': return <Settings />;
-      default: return <Dashboard userRole={userRole} />;
+      case 'dashboard': 
+        return isSuperAdmin ? <Dashboard userRole={userRole} /> : <Inventory userRole={userRole} />;
+      case 'inventory': 
+        return <Inventory userRole={userRole} />;
+      case 'orders': 
+        return <Orders userRole={userRole} />;
+      case 'customers': 
+        return isSuperAdmin ? <Customers userRole={userRole} /> : <Orders userRole={userRole} />;
+      case 'help': 
+        return <Help />;
+      case 'settings': 
+        return isSuperAdmin ? <Settings /> : <Help />;
+      default: 
+        return isSuperAdmin ? <Dashboard userRole={userRole} /> : <Inventory userRole={userRole} />;
     }
   };
 

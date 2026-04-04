@@ -29,10 +29,10 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, setIsOpen, userRole, onLogout }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'store_manager', 'staff'] },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin'] },
     { id: 'inventory', label: 'Inventory', icon: Package, roles: ['super_admin', 'store_manager', 'staff'] },
     { id: 'orders', label: 'Orders', icon: ShoppingCart, roles: ['super_admin', 'store_manager', 'staff'] },
-    { id: 'customers', label: 'Customers', icon: Users, roles: ['super_admin', 'store_manager', 'staff'] },
+    { id: 'customers', label: 'Customers', icon: Users, roles: ['super_admin'] },
     { id: 'help', label: 'Help Center', icon: HelpCircle, roles: ['super_admin', 'store_manager', 'staff'] },
     { id: 'settings', label: 'Accounts', icon: Settings, roles: ['super_admin'] },
   ];
