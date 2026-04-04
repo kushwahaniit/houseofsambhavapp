@@ -3,7 +3,7 @@ import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckC
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDocs, where, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
-import { Order, Product, OrderItem } from '@/src/types';
+import { Order, Product, OrderItem, Customer } from '@/src/types';
 import logo from '../assets/logo.png';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
@@ -15,8 +15,11 @@ interface OrdersProps {
 const Orders: React.FC<OrdersProps> = ({ userRole }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerList, setShowCustomerList] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isClearing, setIsClearing] = useState(false);
@@ -67,10 +70,33 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       handleFirestoreError(error, OperationType.LIST, 'products');
     });
 
+    const custQ = query(collection(db, 'customers'), orderBy('name'));
+    const unsubscribeCusts = onSnapshot(custQ, (snapshot) => {
+      const custs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Customer[];
+      setCustomers(custs);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'customers');
+    });
+
     return () => {
       unsubscribe();
       unsubscribeProds();
+      unsubscribeCusts();
     };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.customer-search-container')) {
+        setShowCustomerList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const filteredOrders = orders.filter(order => {
@@ -119,6 +145,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     const newItem: OrderItem = {
       productId: product.id,
       name: product.name,
+      sku: product.sku,
       quantity: currentItem.quantity,
       price: product.price
     };
@@ -161,6 +188,28 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       setIsClearing(false);
     }
   };
+
+  const selectCustomer = (customer: Customer) => {
+    console.log('Selecting customer:', customer);
+    setFormData(prev => ({
+      ...prev,
+      customerName: customer.name,
+      customerEmail: customer.email || '',
+      customerPhone: customer.phone || '',
+      customerAddress: customer.address || '',
+      customerCity: customer.city || '',
+      customerState: customer.state || '',
+      customerPincode: customer.pincode || ''
+    }));
+    setCustomerSearch(customer.name);
+    setShowCustomerList(false);
+  };
+
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.phone.includes(customerSearch)
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,14 +255,15 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     try {
       const subtotal = calculateSubtotal();
       const orderTotal = calculateTotal();
+      const isOffline = formData.channel === 'Offline';
       const orderData = {
         customerName: formData.customerName,
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,
-        customerAddress: formData.customerAddress,
-        customerCity: formData.customerCity,
-        customerPincode: formData.customerPincode,
-        customerState: formData.customerState,
+        customerAddress: isOffline ? '' : formData.customerAddress,
+        customerCity: isOffline ? '' : formData.customerCity,
+        customerPincode: isOffline ? '' : formData.customerPincode,
+        customerState: isOffline ? '' : formData.customerState,
         subtotal: subtotal,
         discount: formData.discount,
         total: orderTotal,
@@ -230,12 +280,33 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       const orderRef = doc(collection(db, 'orders'));
       batch.set(orderRef, orderData);
 
-      // 3. Update Inventory
-      for (const item of formData.items) {
-        const productRef = doc(db, 'products', item.productId);
-        batch.update(productRef, {
-          stock: increment(-item.quantity)
-        });
+      // 3. Update Inventory (Only if not created as Cancelled)
+      if (formData.status !== 'Cancelled') {
+        for (const item of formData.items) {
+          let productRef = null;
+          if (item.productId) {
+            const ref = doc(db, 'products', item.productId);
+            const snap = await getDoc(ref);
+            if (snap.exists()) {
+              productRef = ref;
+            }
+          }
+
+          // Fallback to SKU if ID fails
+          if (!productRef && item.sku) {
+            const q = query(collection(db, 'products'), where('sku', '==', item.sku));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              productRef = snap.docs[0].ref;
+            }
+          }
+
+          if (productRef) {
+            batch.update(productRef, {
+              stock: increment(-Number(item.quantity))
+            });
+          }
+        }
       }
 
       // 4. Create a billing record
@@ -273,6 +344,10 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
             lastOrder: new Date().toISOString().split('T')[0],
             phone: currentData.phone === 'N/A' ? customerPhone : currentData.phone,
             email: currentData.email || customerEmail,
+            address: isOffline ? (currentData.address || '') : (formData.customerAddress || currentData.address || ''),
+            city: isOffline ? (currentData.city || '') : (formData.customerCity || currentData.city || ''),
+            state: isOffline ? (currentData.state || '') : (formData.customerState || currentData.state || ''),
+            pincode: isOffline ? (currentData.pincode || '') : (formData.customerPincode || currentData.pincode || ''),
             updatedAt: serverTimestamp()
           });
         } else {
@@ -282,6 +357,10 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
             name: formData.customerName,
             email: customerEmail || '',
             phone: customerPhone || 'N/A',
+            address: isOffline ? '' : (formData.customerAddress || ''),
+            city: isOffline ? '' : (formData.customerCity || ''),
+            state: isOffline ? '' : (formData.customerState || ''),
+            pincode: isOffline ? '' : (formData.customerPincode || ''),
             totalOrders: 1,
             totalSpent: orderTotal,
             lastOrder: new Date().toISOString().split('T')[0],
@@ -342,6 +421,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       }
 
       setIsModalOpen(false);
+      setCustomerSearch('');
       setFormData({ 
         customerName: '', 
         customerEmail: '', 
@@ -364,35 +444,121 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
 
   const updateStatus = async (id: string, newStatus: Order['status']) => {
     try {
+      console.log(`Attempting status update for order ${id}: ${newStatus}`);
       const orderRef = doc(db, 'orders', id);
       const orderSnap = await getDoc(orderRef);
-      if (!orderSnap.exists()) return;
+      
+      if (!orderSnap.exists()) {
+        console.error(`Order ${id} not found`);
+        return;
+      }
+      
       const orderData = orderSnap.data() as Order;
       const oldStatus = orderData.status;
+      console.log(`Current status: ${oldStatus}, New status: ${newStatus}`);
+
+      // If status hasn't changed, do nothing
+      if (oldStatus === newStatus) {
+        console.log('Status unchanged, skipping update');
+        return;
+      }
 
       const batch = writeBatch(db);
 
+      // Inventory Logic:
+      // 1. Moving from non-Cancelled to Cancelled: Return stock
       if (oldStatus !== 'Cancelled' && newStatus === 'Cancelled') {
-        // Return stock
-        for (const item of orderData.items) {
-          const productRef = doc(db, 'products', item.productId);
-          batch.update(productRef, {
-            stock: increment(item.quantity)
-          });
+        console.log('Returning stock to inventory...');
+        if (Array.isArray(orderData.items)) {
+          console.log(`Processing ${orderData.items.length} items for stock return`);
+          for (const item of orderData.items) {
+            let productRef = null;
+            if (item.productId) {
+              const ref = doc(db, 'products', item.productId);
+              const snap = await getDoc(ref);
+              if (snap.exists()) {
+                productRef = ref;
+              }
+            }
+
+            // Fallback to SKU if ID fails
+            if (!productRef && item.sku) {
+              console.log(`Product ID ${item.productId} not found. Attempting fallback to SKU: ${item.sku}`);
+              const q = query(collection(db, 'products'), where('sku', '==', item.sku));
+              const snap = await getDocs(q);
+              if (!snap.empty) {
+                productRef = snap.docs[0].ref;
+                console.log(`Found product by SKU: ${item.sku}. New ID: ${productRef.id}`);
+              }
+            }
+
+            if (productRef) {
+              const qty = Number(item.quantity);
+              console.log(`Returning ${qty} units for product ${item.name}`);
+              batch.update(productRef, {
+                stock: increment(qty)
+              });
+            } else {
+              console.warn(`Product ${item.name} (ID: ${item.productId}, SKU: ${item.sku}) could not be found in inventory. Skipping stock return.`);
+            }
+          }
+        } else {
+          console.warn('Order items is not an array:', orderData.items);
         }
-      } else if (oldStatus === 'Cancelled' && newStatus !== 'Cancelled') {
-        // Re-decrement stock
-        for (const item of orderData.items) {
-          const productRef = doc(db, 'products', item.productId);
-          batch.update(productRef, {
-            stock: increment(-item.quantity)
-          });
+      } 
+      // 2. Moving from Cancelled back to any active status: Deduct stock again
+      else if (oldStatus === 'Cancelled' && newStatus !== 'Cancelled') {
+        console.log('Re-deducting stock from inventory...');
+        if (Array.isArray(orderData.items)) {
+          console.log(`Processing ${orderData.items.length} items for stock deduction`);
+          for (const item of orderData.items) {
+            let productRef = null;
+            if (item.productId) {
+              const ref = doc(db, 'products', item.productId);
+              const snap = await getDoc(ref);
+              if (snap.exists()) {
+                productRef = ref;
+              }
+            }
+
+            // Fallback to SKU if ID fails
+            if (!productRef && item.sku) {
+              console.log(`Product ID ${item.productId} not found. Attempting fallback to SKU: ${item.sku}`);
+              const q = query(collection(db, 'products'), where('sku', '==', item.sku));
+              const snap = await getDocs(q);
+              if (!snap.empty) {
+                productRef = snap.docs[0].ref;
+                console.log(`Found product by SKU: ${item.sku}. New ID: ${productRef.id}`);
+              }
+            }
+
+            if (productRef) {
+              const qty = Number(item.quantity);
+              console.log(`Deducting ${qty} units for product ${item.name}`);
+              batch.update(productRef, {
+                stock: increment(-qty)
+              });
+            } else {
+              console.warn(`Product ${item.name} (ID: ${item.productId}, SKU: ${item.sku}) could not be found in inventory. Skipping stock deduction.`);
+            }
+          }
+        } else {
+          console.warn('Order items is not an array:', orderData.items);
         }
       }
 
-      batch.update(orderRef, { status: newStatus });
+      // Update the order status
+      batch.update(orderRef, { 
+        status: newStatus,
+        updatedAt: serverTimestamp() 
+      });
+      
+      console.log('Committing batch update...');
       await batch.commit();
+      console.log('Batch update successful');
     } catch (error) {
+      console.error('Status Update Error:', error);
+      alert('Failed to update status: ' + (error instanceof Error ? error.message : String(error)));
       handleFirestoreError(error, OperationType.UPDATE, `orders/${id}`);
     }
   };
@@ -659,12 +825,70 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
           <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-xl p-6 sm:p-8 shadow-2xl my-auto transition-colors duration-300">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-2xl font-bold text-stone-900 dark:text-stone-50 font-serif">Create New Order</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
+              <button onClick={() => { setIsModalOpen(false); setCustomerSearch(''); }} className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
                 <X size={24} />
               </button>
             </div>
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
-              <div>
+              <div className="relative customer-search-container">
+                <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Search Existing Customer</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Search by name, email or mobile..." 
+                    className="w-full pl-10 pr-10 py-3 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setShowCustomerList(true);
+                    }}
+                    onFocus={() => setShowCustomerList(true)}
+                  />
+                  {customerSearch && (
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setCustomerSearch('');
+                        setFormData({
+                          ...formData,
+                          customerName: '',
+                          customerEmail: '',
+                          customerPhone: '',
+                          customerAddress: '',
+                          customerCity: '',
+                          customerState: '',
+                          customerPincode: ''
+                        });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                {showCustomerList && customerSearch && (
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map(customer => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          className="w-full text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800 border-b border-stone-100 dark:border-stone-800 last:border-0"
+                          onClick={() => selectCustomer(customer)}
+                        >
+                          <p className="font-bold text-stone-900 dark:text-stone-50">{customer.name}</p>
+                          <p className="text-xs text-stone-500">{customer.email} | {customer.phone}</p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-stone-500">No customers found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
                 <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Customer Name</label>
                 <input 
                   type="text" 

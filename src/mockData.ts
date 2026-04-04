@@ -117,11 +117,76 @@ export const MOCK_ORDERS: Order[] = [
 ];
 
 export const MOCK_CUSTOMERS: Customer[] = [
-  { id: 'CUST001', name: 'Ananya Sharma', email: 'ananya@example.com', phone: '+91 98765 43210', totalOrders: 1, totalSpent: 15000, lastOrder: '2024-03-20', createdAt: '2024-01-15' },
-  { id: 'CUST002', name: 'Priya Patel', email: 'priya@example.com', phone: '+91 98765 43211', totalOrders: 1, totalSpent: 45000, lastOrder: '2024-03-21', createdAt: '2024-02-10' },
-  { id: 'CUST003', name: 'Sneha Gupta', email: 'sneha@example.com', phone: '+91 98765 43212', totalOrders: 1, totalSpent: 2500, lastOrder: '2024-03-22', createdAt: '2024-03-01' },
-  { id: 'CUST004', name: 'Riya Singh', email: 'riya@example.com', phone: '+91 98765 43213', totalOrders: 1, totalSpent: 8500, lastOrder: '2024-03-23', createdAt: '2024-03-15' },
-  { id: 'CUST005', name: 'Meera Reddy', email: 'meera@example.com', phone: '+91 98765 43214', totalOrders: 0, totalSpent: 0, lastOrder: 'Never', createdAt: '2024-03-20' },
+  { 
+    id: 'CUST001', 
+    name: 'Ananya Sharma', 
+    email: 'ananya@example.com', 
+    phone: '+91 98765 43210', 
+    totalOrders: 1, 
+    totalSpent: 15000, 
+    lastOrder: '2024-03-20', 
+    createdAt: '2024-01-15',
+    address: '123, Lotus Apartment, MG Road',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    pincode: '400001'
+  },
+  { 
+    id: 'CUST002', 
+    name: 'Priya Patel', 
+    email: 'priya@example.com', 
+    phone: '+91 98765 43211', 
+    totalOrders: 1, 
+    totalSpent: 45000, 
+    lastOrder: '2024-03-21', 
+    createdAt: '2024-02-10',
+    address: '45, Silver Heights, Satellite Road',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380015'
+  },
+  { 
+    id: 'CUST003', 
+    name: 'Sneha Gupta', 
+    email: 'sneha@example.com', 
+    phone: '+91 98765 43212', 
+    totalOrders: 1, 
+    totalSpent: 2500, 
+    lastOrder: '2024-03-22', 
+    createdAt: '2024-03-01',
+    address: '89, Green Park Colony',
+    city: 'Indore',
+    state: 'Madhya Pradesh',
+    pincode: '452001'
+  },
+  { 
+    id: 'CUST004', 
+    name: 'Riya Singh', 
+    email: 'riya@example.com', 
+    phone: '+91 98765 43213', 
+    totalOrders: 1, 
+    totalSpent: 8500, 
+    lastOrder: '2024-03-23', 
+    createdAt: '2024-03-15',
+    address: 'Flat 402, Royal Residency, Gomti Nagar',
+    city: 'Lucknow',
+    state: 'Uttar Pradesh',
+    pincode: '226010'
+  },
+  { 
+    id: 'CUST005', 
+    name: 'Meera Reddy', 
+    email: 'meera@example.com', 
+    phone: '+91 98765 43214', 
+    totalOrders: 0, 
+    totalSpent: 0, 
+    lastOrder: 'Never', 
+    createdAt: '2024-03-20',
+    address: 'House No. 12-5-67, Banjara Hills',
+    city: 'Hyderabad',
+    state: 'Telangana',
+    pincode: '500034'
+  },
 ];
 
 export const MOCK_SALES_DATA: SalesData[] = [

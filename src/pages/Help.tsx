@@ -22,42 +22,55 @@ const Help: React.FC = () => {
       title: 'Getting Started',
       icon: Book,
       items: [
-        'How to add your first product',
-        'Managing your store profile',
-        'Setting up staff accounts',
+        'How to login and account selection',
+        'Navigating the Dashboard',
+        'Understanding User Roles',
       ]
     },
     {
-      title: 'Inventory & Sales',
+      title: 'Inventory Management',
       icon: Package,
       items: [
-        'Bulk stock updates',
-        'Category management',
-        'Tracking low stock alerts',
+        'Adding and editing products',
+        'Bulk upload using CSV',
+        'SKU generation and stock alerts',
       ]
     },
     {
-      title: 'Roles & Permissions',
+      title: 'Order Management',
+      icon: ShoppingCart,
+      items: [
+        'Creating a new order',
+        'Applying discounts',
+        'Shiprocket integration and tracking',
+        'Cancelling and returning stock',
+      ]
+    },
+    {
+      title: 'Security & Settings',
       icon: Shield,
       items: [
-        'Super Admin vs Staff capabilities',
-        'Security best practices',
-        'Resetting passwords',
+        'Two-Factor Authentication (2FA)',
+        'Managing staff permissions',
+        'Dark mode and UI preferences',
       ]
     }
   ];
 
   const helpContent: Record<string, string> = {
-    'How to add your first product': 'To add a product, go to the Inventory tab and click the "Add Product" button. Fill in the details like name, category, price, and stock levels.',
-    'Managing your store profile': 'Store profile settings can be accessed by Super Admins in the Settings tab. You can update the brand name, contact info, and logo.',
-    'Setting up staff accounts': 'Super Admins can create staff accounts from the Settings > Users section. Staff members have limited access to orders and customers.',
-    'Bulk stock updates': 'You can update stock levels individually in the Inventory tab. Bulk upload features are coming soon in the next update.',
-    'Category management': 'Categories are predefined (Jewelry, Lehenga, Kurti, Suit). If you need custom categories, please contact technical support.',
-    'Tracking low stock alerts': 'The Dashboard displays a "Low Stock Items" card. Items with less than 10 units in stock will trigger an alert.',
-    'Generating invoices': 'Invoices are automatically generated when an order is marked as "Delivered". You can view and print them from the Orders detail view.',
-    'Super Admin vs Staff capabilities': 'Super Admins have full access including Inventory management and Settings. Staff can manage Orders and Customers.',
-    'Security best practices': 'Always use strong passwords and never share your login credentials. Log out of the system when using shared devices.',
-    'Resetting passwords': 'If you forget your password, use the "Forgot Password" link on the Google Sign-in page to reset your Google account credentials.',
+    'How to login and account selection': 'When you launch the app, you will be prompted to sign in with Google. We have disabled automatic login to ensure you can always "select_account" if you have multiple Google accounts. Your session will persist only for the duration of your browser session for enhanced security. Note: Only pre-authorized accounts can log in.',
+    'Navigating the Dashboard': 'The Dashboard provides a high-level overview of your business. You can see total sales, order counts, and inventory status. Note: The Dashboard is restricted to Super Admins only.',
+    'Understanding User Roles': 'The app uses Role-Based Access Control (RBAC). Super Admins have full access to everything. Store Managers can manage inventory and orders. Staff members can create and track orders but cannot access administrative settings or the Dashboard.',
+    'Adding and editing products': 'Go to the Inventory tab. Click "Add New Product" to create a single item. You can upload an image (max 2MB), set a category, price, and initial stock. To edit, hover over a product card and click the Edit icon.',
+    'Bulk upload using CSV': 'In the Inventory tab, click "Template" to download a sample CSV. Fill it with your product data and use the "Bulk Upload" button to import hundreds of items at once. Ensure your SKU values are unique.',
+    'SKU generation and stock alerts': 'When adding a product, you can use the "Auto-Generate" button next to the SKU field to create a unique identifier based on the category and timestamp. Products with less than 10 units in stock will be highlighted in red.',
+    'Creating a new order': 'In the Orders tab, click "New Order". Select products from the dropdown, set the quantity, and add customer details. For non-offline orders, shipping details are required for Shiprocket sync.',
+    'Applying discounts': 'During order creation, you can apply a manual discount of up to 25%. The subtotal and final total will update automatically. This discount is also reflected in the generated invoice.',
+    'Shiprocket integration and tracking': 'Orders created with a channel other than "Offline" are automatically synced to Shiprocket. You will receive a Shiprocket Order ID upon successful sync. If sync fails, ensure your credentials are set in the app secrets.',
+    'Cancelling and returning stock': 'If you change an order status to "Cancelled", the system automatically returns the items to your inventory stock. If you reinstate a cancelled order, the stock is re-deducted.',
+    'Two-Factor Authentication (2FA)': 'Enhance your account security by enabling 2FA in the Settings tab. You will need an authenticator app (like Google Authenticator) to scan the QR code. Once enabled, you will be prompted for a 6-digit code upon every login.',
+    'Managing staff permissions': 'Super Admins can manage other users in the Settings > Users section. You can assign roles (Super Admin, Store Manager, Staff) or delete accounts. New accounts must be created by a Super Admin; self-registration is disabled.',
+    'Dark mode and UI preferences': 'The app supports both Light and Dark modes. You can toggle this using the sun/moon icon in the top header. Your preference is saved locally to your browser.',
   };
 
   const handleContactSupport = () => {

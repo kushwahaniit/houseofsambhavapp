@@ -30,10 +30,9 @@ function AppContent() {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('staff');
   const [loading, setLoading] = useState(true);
-  const [loginMethod, setLoginMethod] = useState<'google' | 'email' | 'signup'>('google');
+  const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('google');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -114,23 +113,31 @@ function AppContent() {
                   handleFirestoreError(err, OperationType.UPDATE, `users/${existingDoc.id}`);
                 }
               } else {
-                console.log('No pre-assigned role. Auto-creating account...');
-                // 3. Auto-create account if it doesn't exist
+                console.log('No pre-assigned role. Access denied.');
+                // 3. Check if it's a hardcoded admin who hasn't been created yet
                 const isHardcodedAdmin = (firebaseUser.email === 'kushwahaniit@gmail.com' || firebaseUser.email === 'learnnovative@gmail.com');
-                const role = isHardcodedAdmin ? 'super_admin' : 'staff';
                 
-                try {
-                  await setDoc(doc(db, 'users', firebaseUser.uid), {
-                    uid: firebaseUser.uid,
-                    email: firebaseUser.email,
-                    name: firebaseUser.displayName || 'User',
-                    role: role,
-                    createdAt: serverTimestamp()
-                  });
-                  setUserRole(role);
-                } catch (err) {
-                  console.error("Error creating user document:", err);
-                  handleFirestoreError(err, OperationType.WRITE, `users/${firebaseUser.uid}`);
+                if (isHardcodedAdmin) {
+                  console.log('Hardcoded admin detected. Auto-creating account...');
+                  try {
+                    await setDoc(doc(db, 'users', firebaseUser.uid), {
+                      uid: firebaseUser.uid,
+                      email: firebaseUser.email,
+                      name: firebaseUser.displayName || 'Super Admin',
+                      role: 'super_admin',
+                      createdAt: serverTimestamp()
+                    });
+                    setUserRole('super_admin');
+                    setUser(firebaseUser);
+                  } catch (err) {
+                    console.error("Error creating super admin document:", err);
+                    handleFirestoreError(err, OperationType.WRITE, `users/${firebaseUser.uid}`);
+                  }
+                } else {
+                  // Not an admin and no pre-assigned role
+                  setError('Access denied. Your account has not been authorized by an administrator.');
+                  await signOut(auth);
+                  setUser(null);
                 }
               }
             } catch (err) {
@@ -179,43 +186,6 @@ function AppContent() {
     } catch (err: any) {
       console.error("Email login error:", err);
       setError(err.message || 'Failed to sign in. Please check your credentials.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setAuthLoading(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      
-      if (name) {
-        await updateProfile(firebaseUser, { displayName: name });
-      }
-
-      // Check if this is a hardcoded admin
-      const isHardcodedAdmin = (firebaseUser.email === 'kushwahaniit@gmail.com' || firebaseUser.email === 'learnnovative@gmail.com');
-      const role = isHardcodedAdmin ? 'super_admin' : 'staff';
-
-      // Create the user document
-      try {
-        await setDoc(doc(db, 'users', firebaseUser.uid), {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: name || firebaseUser.displayName || 'User',
-          role: role,
-          createdAt: serverTimestamp()
-        });
-        setUserRole(role);
-      } catch (firestoreErr) {
-        handleFirestoreError(firestoreErr, OperationType.WRITE, `users/${firebaseUser.uid}`);
-      }
-    } catch (err: any) {
-      console.error("Sign up error:", err);
-      setError(err.message || 'Failed to create account.');
     } finally {
       setAuthLoading(false);
     }
@@ -326,12 +296,6 @@ function AppContent() {
                 >
                   Sign in with Email & Password
                 </button>
-                <button 
-                  onClick={() => setLoginMethod('signup')}
-                  className="text-stone-500 font-bold hover:underline text-sm"
-                >
-                  Don't have an account? Sign Up
-                </button>
               </div>
             </div>
           ) : loginMethod === 'email' ? (
@@ -392,88 +356,19 @@ function AppContent() {
                 >
                   Back to Google Login
                 </button>
-                <button 
-                  type="button"
-                  onClick={() => setLoginMethod('signup')}
-                  className="text-amber-700 font-bold hover:underline text-sm"
-                >
-                  Need an account? Sign Up
-                </button>
               </div>
             </form>
           ) : (
-            <form onSubmit={handleSignUp} className="space-y-4 text-left">
-              {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-900/30 mb-4 flex items-center gap-2">
-                  <AlertCircle size={16} />
-                  {error}
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                  <input 
-                    type="text" 
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-stone-100"
-                    placeholder="John Doe"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-stone-100"
-                    placeholder="name@example.com"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-stone-100"
-                    placeholder="Min 6 characters"
-                    minLength={6}
-                  />
-                </div>
-              </div>
-              <button 
-                type="submit"
-                disabled={authLoading}
-                className="w-full flex items-center justify-center gap-3 bg-amber-700 text-white py-4 rounded-2xl font-bold hover:bg-amber-800 transition-all disabled:opacity-50"
-              >
-                {authLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-                ) : (
-                  <>
-                    <User size={20} />
-                    <span>Create Account</span>
-                  </>
-                )}
-              </button>
+            <div className="text-center py-8">
+              <p className="text-stone-500 dark:text-stone-400 mb-4">New account creation is restricted to administrators.</p>
               <button 
                 type="button"
-                onClick={() => setLoginMethod('email')}
-                className="w-full text-center text-stone-500 dark:text-stone-400 font-bold hover:text-stone-700 dark:hover:text-stone-200 text-sm"
+                onClick={() => setLoginMethod('google')}
+                className="text-amber-700 font-bold hover:underline text-sm"
               >
-                Already have an account? Sign In
+                Back to Login
               </button>
-            </form>
+            </div>
           )}
 
           <p className="mt-6 text-xs text-stone-400">

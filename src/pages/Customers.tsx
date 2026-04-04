@@ -25,7 +25,11 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: ''
   });
 
   useEffect(() => {
@@ -111,7 +115,7 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
       }
       setIsModalOpen(false);
       setIsEditing(false);
-      setFormData({ name: '', email: '', phone: '' });
+      setFormData({ name: '', email: '', phone: '', address: '', city: '', state: '', pincode: '' });
     } catch (error) {
       handleFirestoreError(error, isEditing ? OperationType.UPDATE : OperationType.CREATE, 'customers');
     }
@@ -121,8 +125,12 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
     if (selectedCustomer) {
       setFormData({
         name: selectedCustomer.name,
-        email: selectedCustomer.email,
-        phone: selectedCustomer.phone
+        email: selectedCustomer.email || '',
+        phone: selectedCustomer.phone,
+        address: selectedCustomer.address || '',
+        city: selectedCustomer.city || '',
+        state: selectedCustomer.state || '',
+        pincode: selectedCustomer.pincode || ''
       });
       setIsEditing(true);
       setIsModalOpen(true);
@@ -263,6 +271,17 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                     <Calendar size={16} className="text-stone-400 dark:text-stone-500" />
                     <span className="text-sm">Last order: {stats.lastOrder}</span>
                   </div>
+                  {(customer.address || customer.city) && (
+                    <div className="flex items-start gap-3 text-stone-600 dark:text-stone-400 pt-2 border-t border-stone-100 dark:border-stone-800">
+                      <div className="mt-0.5">
+                        <Database size={14} className="text-stone-400 dark:text-stone-500" />
+                      </div>
+                      <div className="text-xs">
+                        {customer.address && <p>{customer.address}</p>}
+                        <p>{[customer.city, customer.state, customer.pincode].filter(Boolean).join(', ')}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-6 border-t border-stone-100 dark:border-stone-800">
@@ -353,13 +372,13 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
               })()}
 
               <div className="space-y-4">
-                <h4 className="font-bold text-stone-900 dark:text-stone-50">Contact Information</h4>
+                <h4 className="font-bold text-stone-900 dark:text-stone-50">Contact & Address</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 p-3 bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-xl">
                     <Mail size={18} className="text-stone-400 dark:text-stone-500" />
                     <div>
                       <p className="text-[10px] text-stone-400 dark:text-stone-500 uppercase font-bold">Email</p>
-                      <p className="text-sm text-stone-700 dark:text-stone-300">{selectedCustomer.email}</p>
+                      <p className="text-sm text-stone-700 dark:text-stone-300">{selectedCustomer.email || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-xl">
@@ -369,6 +388,13 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                       <p className="text-sm text-stone-700 dark:text-stone-300">{selectedCustomer.phone}</p>
                     </div>
                   </div>
+                </div>
+                <div className="p-4 bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 rounded-xl">
+                  <p className="text-[10px] text-stone-400 dark:text-stone-500 uppercase font-bold mb-2">Shipping Address</p>
+                  <p className="text-sm text-stone-700 dark:text-stone-300 mb-1">{selectedCustomer.address || 'No address provided'}</p>
+                  <p className="text-sm text-stone-700 dark:text-stone-300">
+                    {[selectedCustomer.city, selectedCustomer.state, selectedCustomer.pincode].filter(Boolean).join(', ') || 'No location details'}
+                  </p>
                 </div>
               </div>
 
@@ -403,7 +429,7 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                 onClick={() => {
                   setIsModalOpen(false);
                   setIsEditing(false);
-                  setFormData({ name: '', email: '', phone: '' });
+                  setFormData({ name: '', email: '', phone: '', address: '', city: '', state: '', pincode: '' });
                 }} 
                 className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
               >
@@ -421,25 +447,66 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                   onChange={e => setFormData({...formData, name: e.target.value})}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Email Address</label>
+                  <input 
+                    type="email" 
+                    className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Phone Number</label>
+                  <input 
+                    required
+                    type="tel" 
+                    className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Email Address</label>
-                <input 
-                  required
-                  type="email" 
+                <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Shipping Address</label>
+                <textarea 
                   className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  rows={2}
+                  value={formData.address}
+                  onChange={e => setFormData({...formData, address: e.target.value})}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Phone Number</label>
-                <input 
-                  required
-                  type="tel" 
-                  className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
-                  value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
-                />
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">City</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-sm dark:text-stone-100"
+                    value={formData.city}
+                    onChange={e => setFormData({...formData, city: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">State</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-sm dark:text-stone-100"
+                    value={formData.state}
+                    onChange={e => setFormData({...formData, state: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Pincode</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-sm dark:text-stone-100"
+                    value={formData.pincode}
+                    onChange={e => setFormData({...formData, pincode: e.target.value})}
+                  />
+                </div>
               </div>
               <div className="flex gap-4 pt-6">
                 <button 
@@ -447,7 +514,7 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                   onClick={() => {
                     setIsModalOpen(false);
                     setIsEditing(false);
-                    setFormData({ name: '', email: '', phone: '' });
+                    setFormData({ name: '', email: '', phone: '', address: '', city: '', state: '', pincode: '' });
                   }}
                   className="flex-1 py-4 rounded-2xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
                 >

@@ -24,6 +24,7 @@ export interface Product {
 export interface OrderItem {
   productId: string;
   name: string;
+  sku?: string;
   quantity: number;
   price: number;
 }
@@ -56,6 +57,10 @@ export interface Customer {
   totalOrders: number;
   totalSpent: number;
   lastOrder: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   createdAt?: any;
 }
 

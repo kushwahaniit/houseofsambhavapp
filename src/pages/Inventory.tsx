@@ -91,22 +91,57 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    const price = parseFloat(formData.price);
+    const stock = parseInt(formData.stock);
+    
+    if (isNaN(price) || price < 0) {
+      setFeedbackMessage({ type: 'error', text: 'Please enter a valid price.' });
+      setTimeout(() => setFeedbackMessage(null), 3000);
+      return;
+    }
+    
+    if (isNaN(stock) || stock < 0) {
+      setFeedbackMessage({ type: 'error', text: 'Please enter a valid stock quantity.' });
+      setTimeout(() => setFeedbackMessage(null), 3000);
+      return;
+    }
+
+    if (!formData.sku) {
+      setFeedbackMessage({ type: 'error', text: 'SKU is required.' });
+      setTimeout(() => setFeedbackMessage(null), 3000);
+      return;
+    }
+
     const data = {
-      ...formData,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock),
+      name: formData.name,
+      category: formData.category,
+      price: price,
+      stock: stock,
+      sku: formData.sku,
+      image: formData.image,
       updatedAt: serverTimestamp()
     };
 
     try {
       if (editingProduct) {
         await updateDoc(doc(db, 'products', editingProduct.id), data);
+        setFeedbackMessage({ type: 'success', text: 'Product updated successfully.' });
       } else {
-        await addDoc(collection(db, 'products'), data);
+        await addDoc(collection(db, 'products'), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+        setFeedbackMessage({ type: 'success', text: 'Product added successfully.' });
       }
+      setTimeout(() => setFeedbackMessage(null), 3000);
       closeModal();
     } catch (error) {
+      console.error('Error saving product:', error);
       handleFirestoreError(error, editingProduct ? OperationType.UPDATE : OperationType.CREATE, 'products');
+      setFeedbackMessage({ type: 'error', text: 'Failed to save product. Please check permissions.' });
+      setTimeout(() => setFeedbackMessage(null), 5000);
     }
   };
 
@@ -399,7 +434,7 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
                   {product.stock} in stock
                 </span>
               </div>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mb-4">SKU: {product.sku}</p>
+              <p className="text-[10px] text-stone-400 dark:text-stone-500 mb-4">SKU: {product.sku} | ID: {product.id}</p>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-amber-800 dark:text-amber-500">{formatCurrency(product.price)}</span>
                 <button className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">

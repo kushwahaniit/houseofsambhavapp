@@ -61,29 +61,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : {};
+    function isAdminEmail() {
+      return request.auth.token.email in ['kushwahaniit@gmail.com', 'learnnovative@gmail.com'];
+    }
+
+    function getUserRole() {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(userPath) ? get(userPath).data.role : 'none';
+    }
+
+    function hasAnyRole(roles) {
+      return isAuthenticated() && (isAdminEmail() || getUserRole() in roles);
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == 'kushwahaniit@gmail.com' || 
-         request.auth.token.email == 'learnnovative@gmail.com' ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'));
-    }
-
-    function isProtectedAdmin(email) {
-      return email in ['kushwahaniit@gmail.com', 'learnnovative@gmail.com'];
+      return hasAnyRole(['super_admin']);
     }
 
     function isStoreManager() {
-      return isAuthenticated() && (isSuperAdmin() || getUserData().get('role', '') == 'store_manager');
+      return hasAnyRole(['super_admin', 'store_manager']);
     }
 
     function isStaff() {
-      return isAuthenticated() && (isSuperAdmin() || isStoreManager() || getUserData().get('role', '') == 'staff');
+      return hasAnyRole(['super_admin', 'store_manager', 'staff']);
     }
 
     function isOwner(userId) {
@@ -127,7 +127,7 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if isAuthenticated();
-      allow write: if isStoreManager();
+      allow write: if isStaff();
     }
 
     match /orders/{orderId} {
