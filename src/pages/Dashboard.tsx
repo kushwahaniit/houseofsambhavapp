@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  Trash2
+  Trash2,
+  ChevronDown
 } from 'lucide-react';
 import { 
   XAxis, 
@@ -28,6 +29,7 @@ import { formatCurrency, handleFirestoreError, OperationType } from '@/src/lib/u
 import { Order, Product, SalesData } from '@/src/types';
 import { MOCK_PRODUCTS, MOCK_ORDERS, MOCK_CUSTOMERS } from '@/src/mockData';
 import logo from '../assets/logo.png';
+import Dropdown from '../components/Dropdown';
 
 interface DashboardProps {
   userRole: string;
@@ -107,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
     // Fetch low stock items
     const productsQ = query(collection(db, 'products'));
     const unsubscribeProducts = onSnapshot(productsQ, (snapshot) => {
-      const lowStock = snapshot.docs.filter(doc => doc.data().stock < 10).length;
+      const lowStock = snapshot.docs.filter(doc => doc.data().stock < 5).length;
       setStats(prev => [
         prev[0],
         prev[1],
@@ -260,107 +262,95 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {userRole === 'super_admin' && (
-            <div className="flex items-center gap-3">
-              {isDatabaseEmpty ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowSeedConfirm(true)}
-                    disabled={isSeeding || seedStatus === 'success'}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      seedStatus === 'success' 
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
-                        : seedStatus === 'error'
-                        ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
-                        : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
-                    } disabled:opacity-50`}
-                  >
-                    {seedStatus === 'seeding' ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-stone-500"></div>
-                    ) : seedStatus === 'success' ? (
-                      <CheckCircle2 size={18} />
-                    ) : seedStatus === 'error' ? (
-                      <AlertCircle size={18} />
-                    ) : (
-                      <Database size={18} />
-                    )}
-                    {seedStatus === 'seeding' ? 'Seeding...' : seedStatus === 'success' ? 'Seeded!' : seedStatus === 'error' ? 'Failed' : 'Seed Sample Data'}
-                  </button>
-
-                  {showSeedConfirm && (
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-800 p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                      <p className="text-sm text-stone-600 dark:text-stone-400 mb-4">This will populate your database with sample products, orders, and customers. Continue?</p>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={seedData}
-                          className="flex-1 bg-amber-700 text-white py-2 rounded-lg text-xs font-bold hover:bg-amber-800"
-                        >
-                          Yes, Seed Data
-                        </button>
-                        <button 
-                          onClick={() => setShowSeedConfirm(false)}
-                          className="flex-1 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 py-2 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isDeleting}
-                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-lg text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-all disabled:opacity-50"
-                  >
-                    {isDeleting ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-rose-500"></div>
-                    ) : (
-                      <Trash2 size={18} />
-                    )}
-                    {isDeleting ? 'Deleting...' : 'Clear All Data'}
-                  </button>
-
-                  {showDeleteConfirm && (
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-800 p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                      <p className="text-sm text-stone-600 dark:text-stone-400 mb-4">Are you sure you want to delete ALL data? This action cannot be undone.</p>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={deleteData}
-                          className="flex-1 bg-rose-600 text-white py-2 rounded-lg text-xs font-bold hover:bg-rose-700"
-                        >
-                          Yes, Delete
-                        </button>
-                        <button 
-                          onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 py-2 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
           <select 
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100 shadow-sm"
           >
             <option>Last 7 Days</option>
             <option>Last 30 Days</option>
             <option>This Month</option>
           </select>
-          <button 
-            onClick={exportReport}
-            className="flex items-center gap-2 bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-800 transition-colors"
-          >
-            <Download size={18} />
-            Export Report
-          </button>
+
+          <Dropdown 
+            label="Actions"
+            icon={ChevronDown}
+            variant="primary"
+            items={[
+              {
+                label: 'Export Report',
+                icon: Download,
+                onClick: exportReport
+              },
+              ...(userRole === 'super_admin' ? [
+                isDatabaseEmpty ? {
+                  label: seedStatus === 'seeding' ? 'Seeding...' : 'Seed Sample Data',
+                  icon: Database,
+                  onClick: () => setShowSeedConfirm(true),
+                  disabled: isSeeding || seedStatus === 'success'
+                } : {
+                  label: isDeleting ? 'Deleting...' : 'Clear All Data',
+                  icon: Trash2,
+                  onClick: () => setShowDeleteConfirm(true),
+                  variant: 'danger' as const,
+                  disabled: isDeleting
+                }
+              ] : [])
+            ]}
+          />
+
+          {/* Confirmation Modals */}
+          {showSeedConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+              <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-6 max-w-sm w-full animate-in zoom-in-95 duration-200">
+                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center mb-4">
+                  <Database size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-stone-900 dark:text-stone-50 mb-2">Seed Sample Data?</h3>
+                <p className="text-sm text-stone-600 dark:text-stone-400 mb-6">This will populate your database with sample products, orders, and customers. This is great for testing!</p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowSeedConfirm(false)}
+                    className="flex-1 px-4 py-2.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={seedData}
+                    className="flex-1 px-4 py-2.5 bg-amber-700 text-white rounded-xl font-bold hover:bg-amber-800 transition-colors"
+                  >
+                    Yes, Seed
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+              <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-6 max-w-sm w-full animate-in zoom-in-95 duration-200">
+                <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center mb-4">
+                  <Trash2 size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-stone-900 dark:text-stone-50 mb-2">Clear All Data?</h3>
+                <p className="text-sm text-stone-600 dark:text-stone-400 mb-6">Are you sure you want to delete ALL products, orders, and customers? This action cannot be undone.</p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 px-4 py-2.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={deleteData}
+                    className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-colors"
+                  >
+                    Yes, Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

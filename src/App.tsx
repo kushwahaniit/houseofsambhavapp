@@ -4,6 +4,8 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmai
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import Sidebar from './components/Sidebar';
+import GlobalSearch from './components/GlobalSearch';
+import NotificationCenter from './components/NotificationCenter';
 import logo from './assets/logo.png';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
@@ -483,13 +485,8 @@ function AppContent() {
                 }}
               />
             </div>
-            <div className="hidden md:flex items-center gap-3 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2 w-64 lg:w-80">
-              <Search size={18} className="text-stone-400" />
-              <input 
-                type="text" 
-                placeholder="Search anything..." 
-                className="bg-transparent border-none outline-none text-sm w-full dark:text-stone-100"
-              />
+            <div className="hidden md:block">
+              <GlobalSearch onNavigate={setActiveTab} />
             </div>
           </div>
 
@@ -505,10 +502,7 @@ function AppContent() {
               <ShieldCheck size={14} />
               {userRole.replace('_', ' ')}
             </div>
-            <button className="p-2 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors relative">
-              <Bell size={22} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-amber-600 rounded-full border-2 border-white dark:border-stone-900"></span>
-            </button>
+            <NotificationCenter onNavigate={setActiveTab} userRole={userRole} />
             <div className="h-8 w-px bg-stone-200 dark:bg-stone-800 mx-2 hidden sm:block"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">

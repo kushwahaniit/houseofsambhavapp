@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckCircle, Clock, Truck, Ban, Trash2, ShoppingBag, Database } from 'lucide-react';
+import { Search, Filter, Download, ExternalLink, MoreHorizontal, Plus, X, CheckCircle, Clock, Truck, Ban, Trash2, ShoppingBag, Database, ChevronDown } from 'lucide-react';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDocs, where, writeBatch, getDoc, increment } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Order, Product, OrderItem, Customer } from '@/src/types';
 import logo from '../assets/logo.png';
+import Dropdown from '../components/Dropdown';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -23,6 +24,7 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [timeFilter, setTimeFilter] = useState('All Time');
   const [showAll, setShowAll] = useState(false);
   const [formData, setFormData] = useState({
@@ -233,6 +235,15 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
       return;
     }
     
+    // Validate phone number for online orders
+    if (formData.channel !== 'Offline') {
+      const phoneDigits = formData.customerPhone.replace(/\D/g, '');
+      if (phoneDigits.length < 10) {
+        alert('Please enter a valid 10-digit Mobile Number.');
+        return;
+      }
+    }
+    
     if (formData.channel !== 'Offline') {
       if (!formData.customerAddress) {
         alert('Please enter Shipping Address.');
@@ -399,7 +410,10 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
           
           if (response.ok) {
             if (shiprocketResult.status_code === 1 || shiprocketResult.order_id) {
-              alert('SUCCESS: Order created and synced with Shiprocket!\nShiprocket Order ID: ' + (shiprocketResult.order_id || shiprocketResult.data?.order_id));
+              const srId = shiprocketResult.order_id || shiprocketResult.data?.order_id;
+              // Update order with Shiprocket ID
+              await updateDoc(orderRef, { shiprocketOrderId: srId.toString() });
+              alert('SUCCESS: Order created and synced with Shiprocket!\nShiprocket Order ID: ' + srId);
             } else {
               alert('Order created locally. Shiprocket response: ' + (shiprocketResult.message || JSON.stringify(shiprocketResult)));
             }
@@ -563,6 +577,58 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
     }
   };
 
+  const syncShiprocketStatus = async () => {
+    const ordersToSync = orders.filter(o => 
+      o.shiprocketOrderId && 
+      (o.status === 'Pending' || o.status === 'Shipped')
+    );
+
+    if (ordersToSync.length === 0) {
+      alert('No orders found that need syncing with Shiprocket.');
+      return;
+    }
+
+    setIsSyncing(true);
+    let updatedCount = 0;
+
+    try {
+      for (const order of ordersToSync) {
+        try {
+          const response = await fetch(`/api/shiprocket/order/${order.shiprocketOrderId}`);
+          if (response.ok) {
+            const data = await response.json();
+            const shiprocketStatus = data.data?.status?.toLowerCase() || '';
+            
+            let newStatus: Order['status'] | null = null;
+            
+            // Map Shiprocket status to our status
+            // Common Shiprocket statuses: 'NEW', 'PICKUP SCHEDULED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RTO INITIATED'
+            if (shiprocketStatus.includes('delivered')) {
+              newStatus = 'Delivered';
+            } else if (shiprocketStatus.includes('shipped') || shiprocketStatus.includes('in transit')) {
+              newStatus = 'Shipped';
+            } else if (shiprocketStatus.includes('cancelled')) {
+              newStatus = 'Cancelled';
+            }
+
+            if (newStatus && newStatus !== order.status) {
+              await updateStatus(order.id, newStatus);
+              updatedCount++;
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to sync order ${order.id}:`, err);
+        }
+      }
+      alert(`Sync complete! ${updatedCount} order(s) updated.`);
+    } catch (error) {
+      console.error('Sync Error:', error);
+      alert('Failed to sync with Shiprocket.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Delivered': return <CheckCircle size={14} />;
@@ -648,26 +714,46 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
             <p className="text-stone-500 dark:text-stone-400">Track and manage customer orders across all channels.</p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <button className="flex items-center justify-center gap-2 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
-            <Download size={18} />
-            <span>Export</span>
-          </button>
-          {userRole === 'super_admin' && (
-            <button 
-              onClick={clearAllOrders}
-              disabled={isClearing}
-              className="flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 px-4 py-2.5 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors disabled:opacity-50"
-              title="Delete all order data"
-            >
-              <Trash2 size={18} />
-              <span>{isClearing ? 'Clearing...' : 'Clear Data'}</span>
-            </button>
-          )}
-
+        <div className="flex items-center gap-3">
+          <Dropdown 
+            label="Actions"
+            items={[
+              {
+                label: isSyncing ? 'Syncing...' : 'Sync with Shiprocket',
+                icon: Truck,
+                onClick: syncShiprocketStatus,
+                disabled: isSyncing
+              },
+              {
+                label: 'Export Orders',
+                icon: Download,
+                onClick: () => {
+                  // Simple CSV export logic
+                  const csvRows = [['Order ID', 'Customer', 'Date', 'Total', 'Channel', 'Status']];
+                  displayOrders.forEach(o => {
+                    csvRows.push([o.id, o.customerName, o.date, o.total.toString(), o.channel, o.status]);
+                  });
+                  const csvContent = csvRows.map(r => r.join(',')).join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', url);
+                  link.setAttribute('download', `Orders_${new Date().toISOString().split('T')[0]}.csv`);
+                  link.click();
+                }
+              },
+              ...(userRole === 'super_admin' ? [{
+                label: isClearing ? 'Clearing...' : 'Clear All Orders',
+                icon: Trash2,
+                onClick: clearAllOrders,
+                variant: 'danger' as const,
+                disabled: isClearing
+              }] : [])
+            ]}
+          />
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors"
+            className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors shadow-sm"
           >
             <Plus size={18} />
             <span>New Order</span>
@@ -772,14 +858,24 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <select 
-                          className="text-xs bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 outline-none dark:text-stone-100"
+                          className={`text-xs bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 outline-none dark:text-stone-100 ${
+                            order.channel !== 'Offline' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                           value={order.status}
+                          disabled={order.channel !== 'Offline'}
                           onChange={(e) => updateStatus(order.id, e.target.value as Order['status'])}
+                          title={order.channel !== 'Offline' ? "Status is synced with Shiprocket" : ""}
                         >
-                          <option>Pending</option>
-                          <option>Shipped</option>
-                          <option>Delivered</option>
-                          <option>Cancelled</option>
+                          <option value="Pending">Pending</option>
+                          {order.channel === 'Offline' ? (
+                            <option value="Delivered">Delivered</option>
+                          ) : (
+                            <>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </>
+                          )}
                         </select>
                         <button 
                           onClick={() => setSelectedOrder(order)}
@@ -1051,13 +1147,22 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                 <div>
                   <label className="block text-sm font-bold text-stone-700 dark:text-stone-300 mb-2">Status</label>
                   <select 
-                    className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
-                    value={formData.status}
+                    className={`w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100 ${
+                      formData.channel !== 'Offline' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    value={formData.channel !== 'Offline' ? 'Pending' : formData.status}
+                    disabled={formData.channel !== 'Offline'}
                     onChange={e => setFormData({...formData, status: e.target.value as Order['status']})}
+                    title={formData.channel !== 'Offline' ? "Online orders must start as Pending" : ""}
                   >
-                    <option>Pending</option>
-                    <option>Shipped</option>
-                    <option>Delivered</option>
+                    <option value="Pending">Pending</option>
+                    {formData.channel === 'Offline' && <option value="Delivered">Delivered</option>}
+                    {formData.channel !== 'Offline' && (
+                      <>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -1065,7 +1170,14 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                   <select 
                     className="w-full px-4 py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none dark:text-stone-100"
                     value={formData.channel}
-                    onChange={e => setFormData({...formData, channel: e.target.value as Order['channel']})}
+                    onChange={e => {
+                      const newChannel = e.target.value as Order['channel'];
+                      setFormData({
+                        ...formData, 
+                        channel: newChannel,
+                        status: newChannel !== 'Offline' ? 'Pending' : formData.status
+                      });
+                    }}
                   >
                     <option value="Website">Website</option>
                     <option value="Offline">Offline</option>
@@ -1168,6 +1280,12 @@ const Orders: React.FC<OrdersProps> = ({ userRole }) => {
                   <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Channel</p>
                   <p className="text-stone-900 dark:text-stone-100">{selectedOrder.channel}</p>
                 </div>
+                {selectedOrder.shiprocketOrderId && (
+                  <div>
+                    <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Shiprocket ID</p>
+                    <p className="text-stone-900 dark:text-stone-100 font-mono">{selectedOrder.shiprocketOrderId}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Status</p>
                   <span className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full mt-1 ${

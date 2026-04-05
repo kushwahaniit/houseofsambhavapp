@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Mail, Phone, Calendar, ArrowRight, UserPlus, X, Database, Trash2 } from 'lucide-react';
+import { Search, Mail, Phone, Calendar, ArrowRight, UserPlus, X, Database, Trash2, ChevronDown } from 'lucide-react';
 import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Customer, Order } from '@/src/types';
 import logo from '../assets/logo.png';
+import Dropdown from '../components/Dropdown';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -193,31 +194,31 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
             <p className="text-stone-500 dark:text-stone-400">Manage your customer relationships and loyalty.</p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           {userRole === 'super_admin' && (
-            <div className="flex gap-2">
-              <button 
-                onClick={seedSampleCustomers}
-                disabled={isSeeding || isClearing}
-                className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors disabled:opacity-50"
-              >
-                <Database size={18} />
-                <span>{isSeeding ? 'Seeding...' : 'Seed Data'}</span>
-              </button>
-              <button 
-                onClick={clearAllCustomers}
-                disabled={isSeeding || isClearing}
-                className="flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 px-4 py-2.5 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors disabled:opacity-50"
-                title="Delete all customer data"
-              >
-                <Trash2 size={18} />
-                <span>{isClearing ? 'Clearing...' : 'Clear Data'}</span>
-              </button>
-            </div>
+            <Dropdown 
+              label="Actions"
+              icon={ChevronDown}
+              items={[
+                {
+                  label: isSeeding ? 'Seeding...' : 'Seed Sample Data',
+                  icon: Database,
+                  onClick: seedSampleCustomers,
+                  disabled: isSeeding || isClearing
+                },
+                {
+                  label: isClearing ? 'Clearing...' : 'Clear All Data',
+                  icon: Trash2,
+                  onClick: clearAllCustomers,
+                  variant: 'danger' as const,
+                  disabled: isSeeding || isClearing
+                }
+              ]}
+            />
           )}
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors"
+            className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors shadow-sm"
           >
             <UserPlus size={18} />
             <span>Add New Customer</span>
@@ -336,10 +337,24 @@ const Customers: React.FC<CustomersProps> = ({ userRole }) => {
                   <p className="text-stone-500 dark:text-stone-400">Customer since {selectedCustomer.createdAt ? selectedCustomer.createdAt.split('-')[0] : 'Recently'}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="p-2 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800">
+                  <button 
+                    onClick={() => {
+                      if (selectedCustomer.email) {
+                        window.location.href = `mailto:${selectedCustomer.email}`;
+                      }
+                    }}
+                    className="p-2 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800"
+                    title="Send Email"
+                  >
                     <Mail size={20} />
                   </button>
-                  <button className="p-2 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800">
+                  <button 
+                    onClick={() => {
+                      window.location.href = `tel:${selectedCustomer.phone}`;
+                    }}
+                    className="p-2 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800"
+                    title="Call Customer"
+                  >
                     <Phone size={20} />
                   </button>
                 </div>

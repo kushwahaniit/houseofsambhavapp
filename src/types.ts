@@ -47,6 +47,7 @@ export interface Order {
   status: 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
   channel: OrderChannel;
   items: OrderItem[];
+  shiprocketOrderId?: string;
 }
 
 export interface Customer {

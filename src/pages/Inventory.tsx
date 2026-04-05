@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Package, X, Database, Smartphone, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Package, X, Database, Smartphone, CheckCircle2, AlertCircle, Download, ChevronDown } from 'lucide-react';
 import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/src/firebase';
 import { formatCurrency } from '@/src/lib/utils';
 import { Category, Product } from '@/src/types';
 import logo from '../assets/logo.png';
+import Dropdown from '../components/Dropdown';
 
 import { handleFirestoreError, OperationType } from '@/src/lib/utils';
 
@@ -37,22 +38,80 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
     setFormData({ ...formData, sku: `${prefix}-${random}-${timestamp}` });
   };
 
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Try to get it under 800KB (base64 will increase it to ~1MB)
+        let quality = 0.7;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        
+        while (dataUrl.length > 800000 && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        
+        resolve(dataUrl);
+      };
+      img.onerror = (err) => reject(err);
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setFeedbackMessage({ type: 'error', text: 'File size too large. Please upload an image smaller than 2MB.' });
+    // Allow up to 5MB for the source file, we will compress it
+    if (file.size > 5 * 1024 * 1024) {
+      setFeedbackMessage({ type: 'error', text: 'File size too large. Please upload an image smaller than 5MB.' });
       setTimeout(() => setFeedbackMessage(null), 3000);
       return;
     }
 
     setUploading(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData({ ...formData, image: reader.result as string });
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      
+      try {
+        const compressed = await compressImage(base64);
+        setFormData({ ...formData, image: compressed });
+        setFeedbackMessage({ type: 'success', text: 'Image uploaded and optimized successfully.' });
+      } catch (err) {
+        console.error('Compression error:', err);
+        setFormData({ ...formData, image: base64 });
+        setFeedbackMessage({ type: 'success', text: 'Image uploaded (not optimized).' });
+      }
+      
       setUploading(false);
-      setFeedbackMessage({ type: 'success', text: 'Image uploaded successfully.' });
       setTimeout(() => setFeedbackMessage(null), 2000);
     };
     reader.onerror = () => {
@@ -137,11 +196,36 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
       }
       setTimeout(() => setFeedbackMessage(null), 3000);
       closeModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      handleFirestoreError(error, editingProduct ? OperationType.UPDATE : OperationType.CREATE, 'products');
-      setFeedbackMessage({ type: 'error', text: 'Failed to save product. Please check permissions.' });
-      setTimeout(() => setFeedbackMessage(null), 5000);
+      
+      let errorMessage = 'Failed to save product. Please check permissions.';
+      
+      // Try to parse the specific Firestore error
+      try {
+        // handleFirestoreError throws an Error with a JSON string message
+        const errorDetails = JSON.parse(error.message);
+        if (errorDetails.error && errorDetails.error.includes('exceeds the maximum allowed size')) {
+          errorMessage = 'The product data (likely the image) is too large for the database. Please try a different image.';
+        } else if (errorDetails.error) {
+          errorMessage = `Database Error: ${errorDetails.error}`;
+        }
+      } catch (e) {
+        // If parsing fails, use the raw error message if it's simple
+        if (error.message && !error.message.startsWith('{')) {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+
+      // Log the error with full context
+      try {
+        handleFirestoreError(error, editingProduct ? OperationType.UPDATE : OperationType.CREATE, 'products');
+      } catch (innerError) {
+        // handleFirestoreError re-throws, which is fine, we've already caught the original
+      }
+      
+      setFeedbackMessage({ type: 'error', text: errorMessage });
+      setTimeout(() => setFeedbackMessage(null), 6000);
     }
   };
 
@@ -319,38 +403,42 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
           </div>
         </div>
         {canEdit && (
-          <div className="flex flex-wrap gap-3">
-            {userRole === 'super_admin' && (
-              <button 
-                onClick={clearAllProducts}
-                disabled={isClearing}
-                className="flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 px-4 py-2.5 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors disabled:opacity-50"
-                title="Delete all product data"
-              >
-                <Trash2 size={18} />
-                <span>{isClearing ? 'Clearing...' : 'Clear Data'}</span>
-              </button>
-            )}
-            <button 
-              onClick={downloadTemplate}
-              className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-            >
-              <Database size={18} />
-              <span>Template</span>
-            </button>
-            <label className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-4 py-2.5 rounded-xl font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer">
-              <Plus size={18} />
-              <span>Bulk Upload</span>
-              <input 
-                type="file" 
-                accept=".csv" 
-                className="hidden" 
-                onChange={handleBulkUpload}
-              />
-            </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Dropdown 
+              label="Actions"
+              items={[
+                ...(userRole === 'super_admin' ? [{
+                  label: isClearing ? 'Clearing...' : 'Clear All Data',
+                  icon: Trash2,
+                  onClick: clearAllProducts,
+                  variant: 'danger' as const,
+                  disabled: isClearing
+                }] : []),
+                {
+                  label: 'Download Template',
+                  icon: Database,
+                  onClick: downloadTemplate
+                },
+                {
+                  label: 'Bulk Upload (CSV)',
+                  icon: Plus,
+                  onClick: () => {
+                    const input = document.getElementById('bulk-upload-input');
+                    if (input) input.click();
+                  }
+                }
+              ]}
+            />
+            <input 
+              id="bulk-upload-input"
+              type="file" 
+              accept=".csv" 
+              className="hidden" 
+              onChange={handleBulkUpload}
+            />
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors"
+              className="flex items-center justify-center gap-2 bg-amber-700 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-amber-800 transition-colors shadow-sm"
             >
               <Plus size={20} />
               <span>Add New Product</span>
@@ -391,8 +479,8 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
       {/* Product Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {filteredProducts.map((product) => (
-          <div key={product.id} className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden group hover:shadow-lg transition-all duration-300">
-            <div className="relative aspect-square overflow-hidden bg-stone-100 dark:bg-stone-800">
+          <div key={product.id} className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 group hover:shadow-lg transition-all duration-300">
+            <div className="relative aspect-square overflow-hidden bg-stone-100 dark:bg-stone-800 rounded-t-2xl">
               {product.image ? (
                 <img 
                   src={product.image} 
@@ -430,16 +518,32 @@ const Inventory: React.FC<InventoryProps> = ({ userRole }) => {
             <div className="p-5">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-bold text-stone-900 dark:text-stone-50 line-clamp-1">{product.name}</h3>
-                <span className={`text-xs font-bold ${product.stock < 10 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                <span className={`text-xs font-bold ${product.stock < 5 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {product.stock} in stock
                 </span>
               </div>
               <p className="text-[10px] text-stone-400 dark:text-stone-500 mb-4">SKU: {product.sku} | ID: {product.id}</p>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-amber-800 dark:text-amber-500">{formatCurrency(product.price)}</span>
-                <button className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
-                  <MoreVertical size={20} />
-                </button>
+                <Dropdown 
+                  variant="ghost"
+                  align="right"
+                  items={[
+                    {
+                      label: 'Edit Product',
+                      icon: Edit,
+                      onClick: () => openEdit(product),
+                      disabled: !canEdit
+                    },
+                    {
+                      label: 'Delete Product',
+                      icon: Trash2,
+                      onClick: () => setDeleteConfirm({ isOpen: true, id: product.id, name: product.name }),
+                      variant: 'danger',
+                      disabled: !canEdit
+                    }
+                  ]}
+                />
               </div>
             </div>
           </div>

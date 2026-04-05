@@ -101,6 +101,10 @@ async function startServer() {
       const address = orderData.customerAddress || "";
       const validatedAddress = address.length < 10 ? `${address} (Address for shipping)`.padEnd(10, ' ') : address;
 
+      // Validate phone number (Shiprocket requirement: 10 digits)
+      const rawPhone = (orderData.customerPhone || "").toString().replace(/\D/g, '');
+      const validatedPhone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone.padStart(10, '0');
+
       // Map our order data to Shiprocket format
       const shiprocketOrder = {
         order_id: orderData.id,
@@ -113,8 +117,8 @@ async function startServer() {
         billing_pincode: orderData.customerPincode || "Pincode required",
         billing_state: orderData.customerState || "State required",
         billing_country: "India",
-        billing_email: orderData.customerEmail,
-        billing_phone: orderData.customerPhone,
+        billing_email: orderData.customerEmail || "customer@example.com",
+        billing_phone: validatedPhone,
         shipping_is_billing: true,
         order_items: orderData.items.map((item: any) => ({
           name: item.name,
@@ -138,13 +142,26 @@ async function startServer() {
       if (!orderData.pickup_location_override) {
         try {
           console.log("Shiprocket: Fetching pickup locations...");
-          const pickupResponse = await fetch("https://apiv2.shiprocket.in/v1/external/settings/get/pickup", {
+          // Try the most common endpoint first
+          let pickupResponse = await fetch("https://apiv2.shiprocket.in/v1/external/settings/get/pickup", {
             method: "GET",
             headers: { 
               Authorization: `Bearer ${token}`,
               "Accept": "application/json"
             },
           });
+          
+          // If 404, try the alternative endpoint
+          if (pickupResponse.status === 404) {
+            console.log("Shiprocket: Primary pickup endpoint 404, trying alternative...");
+            pickupResponse = await fetch("https://apiv2.shiprocket.in/v1/external/settings/get/all_pickup_locations", {
+              method: "GET",
+              headers: { 
+                Authorization: `Bearer ${token}`,
+                "Accept": "application/json"
+              },
+            });
+          }
           
           if (pickupResponse.ok) {
             const pickupData = await pickupResponse.json();
@@ -169,11 +186,11 @@ async function startServer() {
                 console.log(`Shiprocket: "Primary" pickup location not found. Using "${shiprocketOrder.pickup_location}" instead.`);
               }
             } else {
-              console.warn("Shiprocket: No pickup locations found in account.");
+              console.warn("Shiprocket: No pickup locations found in account. Using default 'Primary'.");
             }
           } else {
             const errorText = await pickupResponse.text();
-            console.error(`Shiprocket: Failed to fetch pickup locations. Status: ${pickupResponse.status}, Body: ${errorText}`);
+            console.warn(`Shiprocket: Could not fetch pickup locations (Status: ${pickupResponse.status}). Using default 'Primary'.`);
           }
         } catch (e) {
           console.error("Shiprocket: Failed to fetch pickup locations for order, using default 'Primary'.", e);
@@ -230,6 +247,42 @@ async function startServer() {
         details: error.stack
       });
     }
+  });
+
+  // Get Shiprocket Order Status
+  app.get("/api/shiprocket/order/:orderId", async (req, res) => {
+    try {
+      const token = await getShiprocketToken();
+      const { orderId } = req.params;
+
+      console.log(`Shiprocket: Fetching status for order ${orderId}`);
+      const response = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/show/${orderId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Accept": "application/json"
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return res.status(response.status).json(errorData);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("Shiprocket Status Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Shiprocket Webhook (Optional but good for real-time)
+  app.post("/api/shiprocket/webhook", async (req, res) => {
+    console.log("Shiprocket Webhook received:", req.body);
+    // In a real app, we would verify the signature and update Firestore here
+    // For now, we'll just acknowledge it
+    res.json({ status: "acknowledged" });
   });
 
   // Catch-all for API routes that don't exist
